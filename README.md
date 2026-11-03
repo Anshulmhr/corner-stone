@@ -35,7 +35,7 @@ npm start
 
 Open [the built app](http://127.0.0.1:3001) or [API health](http://127.0.0.1:3001/api/health). Express serves both the generated `dist/` assets and `/api/*`. The default host is `127.0.0.1` and the default port is `3001`. For a container, set `HOST=0.0.0.0` and the host platform’s `PORT` in its environment.
 
-For hosts with separate build and run steps, build with development dependencies first. Include `dist/`, `server/`, `shared/` and the package manifests in the runtime. Install runtime dependencies with `npm ci --omit=dev` and use `npm start`. Rebuild after frontend changes.
+For hosts with separate build and run steps, build with development dependencies first. Include `dist/`, `server/`, `shared/`, `src/data/problems.js` and the package manifests in the runtime. Install runtime dependencies with `npm ci --omit=dev` and use `npm start`. Rebuild after frontend changes.
 
 ## Automated verification
 
@@ -68,3 +68,9 @@ The GitHub Actions **Test** workflow runs `npm test` on pushes and pull requests
 | `server/` | Express API, private test harnesses and coach |
 | `shared/compiler.json` | Compiler selection and display label used by the API and UI |
 | `scripts/test.mjs`, `tests/` | Local test runner and browser regression |
+
+## Opt-in training pilot
+
+Use **Join training pilot** on the personal dashboard. Participation is optional. During practice, learners can answer the prior-familiarity question and choose individual explanations to share for review. **Leave pilot and delete my data** removes the learner’s pilot records. Demo practice stays separate.
+
+The server uses Node 24’s built-in SQLite and creates its pilot database on first enrolment. Use a private persistent volume for real pilot sessions. The operator CLI exports first-attempt examples, recommendation exposures, event history, learner splits and coverage counts. See the [pilot setup, export commands and data dictionary](docs/pilot-data.md).

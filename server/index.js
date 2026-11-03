@@ -13,6 +13,7 @@
 'use strict';
 
 const express = require('express');
+const pilot = require('./pilot/routes.js');
 const path = require('node:path');
 const compiler = require('../shared/compiler.json');
 const { TEST_SUITES, gradeCase } = require('./testSuites.js');
@@ -71,10 +72,15 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+app.use('/api/pilot', (req,res,next) => {
+  if (!checkRateLimit('pilot:' + req.ip)) return res.sendStatus(429);
+  next();
+}, pilot.router);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function capOutput(s) {
@@ -170,6 +176,7 @@ app.post('/api/execute', async (req, res) => {
 
   // The server binds each result to the job it launched. Student output cannot
   // declare another case passed. All jobs share one wall-clock deadline.
+  const capture = pilot.startSubmission(req, problemId);
   const started = Date.now();
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
@@ -178,11 +185,11 @@ app.post('/api/execute', async (req, res) => {
     jobs = await Promise.all(suite.publicCases.map(tc => runCase(suite, tc, userCode, controller.signal)));
   } catch {
     controller.abort();
-    return res.status(503).json({
+    return res.status(503).json(pilot.finishSubmission(capture, {
       status: 'EXECUTION_FAILED', message: 'The compiler service could not finish grading. Please retry.',
       passedCount: 0, totalCount: 0, results: [], diagnosis: null,
       executionTimeMs: Date.now() - started,
-    });
+    }));
   } finally {
     clearTimeout(deadline);
   }
@@ -190,10 +197,10 @@ app.post('/api/execute', async (req, res) => {
   const executionTimeMs = Date.now() - started;
   const failure = jobs.find(job => job.status);
   if (failure) {
-    return res.json({
+    return res.json(pilot.finishSubmission(capture, {
       ...failure, passedCount: 0, totalCount: suite.totalCount, results: [], executionTimeMs,
       diagnosis: diagnose({ ...failure, totalCount: suite.totalCount, executionTimeMs, attemptHistory }),
-    });
+    }));
   }
 
   const results = jobs.map(job => job.result);
@@ -201,7 +208,7 @@ app.post('/api/execute', async (req, res) => {
   const totalCount = suite.totalCount;
   const status = passedCount === totalCount ? 'ACCEPTED' : 'WRONG_ANSWER';
   const diagnosis = diagnose({ status, passedCount, totalCount, gradedResults: results, suite, executionTimeMs, attemptHistory });
-  return res.json({ status, passedCount, totalCount, results, executionTimeMs, diagnosis });
+  return res.json(pilot.finishSubmission(capture, { status, passedCount, totalCount, results, executionTimeMs, diagnosis }));
 });
 
 // ─── POST /api/coach ──────────────────────────────────────────────────────────

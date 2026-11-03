@@ -1,3 +1,4 @@
+import { pilotEvent } from '../../services/pilot.js';
 import React, { useState } from 'react';
 import { 
   Brain, 
@@ -32,6 +33,7 @@ export default function RecallSessionModal({
   const nextIntervalDays = SPACED_INTERVALS[nextStage - 1];
 
   const handleRecord = (outcome) => {
+    pilotEvent('revision',problem.id,{outcome});
     recordRevisionOutcome(problem.id, outcome);
     if (onOutcomeRecorded) onOutcomeRecorded(outcome);
     onClose();
@@ -153,7 +155,10 @@ export default function RecallSessionModal({
               <span>Need assistance? Revealing hints will count as <em>"Solved with hints"</em>.</span>
             </div>
             <button 
-              onClick={() => setHintsRevealed(prev => !prev)}
+              onClick={() => {
+                if (!hintsRevealed) pilotEvent('revision-help',problem.id);
+                setHintsRevealed(prev => !prev);
+              }}
               className="btn btn-secondary btn-sm"
               style={{ fontSize: '0.75rem' }}
             >

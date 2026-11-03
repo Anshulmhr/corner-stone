@@ -1,7 +1,11 @@
 import React from 'react';
 import { Sparkles, ArrowRight, HelpCircle, CheckCircle } from 'lucide-react';
 
+import { usePilotImpression } from '../usePilotImpression.js';
+
 export default function RecommendationCard({ recommendation, onStartSolving }) {
+  const [impressionRef, shown] = usePilotImpression('recommendation', recommendation?.problem?.id,
+    recommendation?.problem && {surface:'dashboard', reason:recommendation.reason, candidates:recommendation.candidateIds});
   if (!recommendation || !recommendation.problem) return null;
 
   const { problem, badge, reason, whyThisProblem, targetMetric, difficulty, topic } = recommendation;
@@ -13,7 +17,7 @@ export default function RecommendationCard({ recommendation, onStartSolving }) {
     : 'badge-hard';
 
   return (
-    <div className="recommendation-card">
+    <div className="recommendation-card" ref={impressionRef}>
       <div className="recommendation-pill">
         <Sparkles size={13} />
         <span>Recommended Next Problem • {badge}</span>
@@ -74,7 +78,7 @@ export default function RecommendationCard({ recommendation, onStartSolving }) {
 
         <div>
           <button 
-            onClick={() => onStartSolving(problem)}
+            onClick={() => onStartSolving(problem, shown())}
             className="btn btn-primary"
             style={{ padding: '0.8rem 1.6rem', fontSize: '0.95rem' }}
           >

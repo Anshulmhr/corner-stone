@@ -1,3 +1,4 @@
+import { submissionContext, markUncertainSubmission } from './pilot.js';
 /**
  * Client-side code execution service.
  *
@@ -17,7 +18,7 @@
  * @param {Array}  [attemptHistory] - previous attempts for this problem
  * @returns {Promise<object>}
  */
-export async function evaluateCppSubmission(problemId, userCode, attemptHistory = []) {
+export async function evaluateCppSubmission(problemId, userCode, attemptHistory = [], pilotView = null) {
   // Client-side guard — catches empty submissions instantly without a round-trip
   if (!userCode || !userCode.trim()) {
     return {
@@ -39,14 +40,16 @@ function getApiEndpoint(path) {
   return `${base}${path}`;
 }
 
+  const pilot = await submissionContext(pilotView);
   let response;
   try {
     response = await fetch(getApiEndpoint('/api/execute'), {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ problemId, userCode, attemptHistory }),
+      headers: { 'Content-Type': 'application/json', ...(pilot && {Authorization:'Bearer '+pilot.token}) },
+      body:    JSON.stringify({ problemId, userCode, attemptHistory, pilot:pilot?.data }),
     });
   } catch (networkErr) {
+    markUncertainSubmission(pilotView);
     return {
       status:  'EXECUTION_FAILED',
       message: `Cannot reach the execution server. Check your connection. (${networkErr.message})`,
@@ -89,8 +92,11 @@ function getApiEndpoint(path) {
   }
 
   try {
-    return await response.json();
+    const verdict = await response.json();
+    if (pilot && !verdict.submissionId) markUncertainSubmission(pilotView);
+    return verdict;
   } catch (_) {
+    markUncertainSubmission(pilotView);
     return {
       status:  'EXECUTION_FAILED',
       message: 'Received an invalid response from the execution server.',

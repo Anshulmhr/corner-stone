@@ -29,12 +29,16 @@ import {
   getUnlockedHints
 } from '../../services/storage.js';
 
+import { viewEvent, viewing } from '../../services/pilot.js';
+
 export default function UnderstandingReflectionPanel({
+  pilotView,
   problem,
   evaluationResult = null,
   isBlindMode = false,
   onAssessmentUpdated = null
 }) {
+  const [share, setShare] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [approachExplanation, setApproachExplanation] = useState('');
   const [statedTimeComplexity, setStatedTimeComplexity] = useState('');
@@ -120,6 +124,7 @@ export default function UnderstandingReflectionPanel({
     if (quizSubmitted) return;
     setSelectedQuizOption(idx);
     setQuizSubmitted(true);
+    viewEvent(pilotView,'help',{source:'quiz-feedback',level:0});
     updateDraft({ selectedQuizOption: idx, quizSubmitted: true });
   };
 
@@ -168,7 +173,7 @@ export default function UnderstandingReflectionPanel({
       mistakeCategory: evaluationResult?.diagnosis?.category || null,
       hintsUnlocked,
       attemptCount: problemAttempts.length,
-      isBlindSolve,
+      isBlindSolve: isBlindMode,
       statedTimeComplexity: statedTimeComplexity.trim() || null,
       statedSpaceComplexity: statedSpaceComplexity.trim() || null,
       complexityReasoning: complexityReasoning.trim() || null,
@@ -184,6 +189,12 @@ export default function UnderstandingReflectionPanel({
       evidence
     });
 
+    if (share && approachExplanation.trim() && approachExplanation.trim().length <= 4000 && viewing(pilotView)) {
+      viewEvent(pilotView,'reflection',{share:true,text:approachExplanation.trim(),
+        quizOption:quizSubmitted ? selectedQuizOption : null}).then(ok =>
+        setFeedbackMsg(ok ? 'Assessment saved. Explanation shared with pilot reviewers.' : 'Assessment saved locally. Explanation was not confirmed as shared.'));
+      setShare(false);
+    }
     saveUnderstandingAssessment(newAssessment);
     setAssessment(newAssessment);
     setFeedbackMsg('Assessment evaluated and saved across all 5 dimensions.');
@@ -504,6 +515,10 @@ export default function UnderstandingReflectionPanel({
               </div>
             )}
 
+            {viewing(pilotView) && <label>
+              <input type="checkbox" checked={share} disabled={!approachExplanation.trim() || approachExplanation.trim().length > 4000}
+                onChange={e => setShare(e.target.checked)} /> Share this explanation and quiz choice with pilot reviewers when I evaluate (up to 4,000 characters).
+            </label>}
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginTop: '0.25rem' }}>
               <button

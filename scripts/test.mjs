@@ -14,9 +14,10 @@ const commands = [
     'blind_solve', 'mistake_patterns', 'intelligence_engine', 'phase2b_integration']
     .map(name => [`test_${name}.js`]),
   ['test_ai_coach.cjs'],
-  ['--test', 'test_grading_outcomes.mjs'],
+  ['--test', 'test_grading_outcomes.mjs', 'tests/pilot-data.mjs'],
   ['test_grading_local.cjs'],
   ['tests/stability-browser.mjs'],
+  ['tests/pilot-browser.mjs'],
 ];
 
 for (const args of commands) {

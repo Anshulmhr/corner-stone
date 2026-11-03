@@ -16,6 +16,8 @@ import {
 import { getRevisionPipeline } from './services/revisionService';
 
 import { isDemoProfile, switchProgressProfile } from './services/progressProfile.js';
+import PilotPanel from './components/PilotPanel';
+import { openPilotProblem } from './services/pilot.js';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import DashboardView from './components/Dashboard/DashboardView';
@@ -26,6 +28,7 @@ import RoadmapView from './components/Roadmap/RoadmapView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'problems' | 'roadmap' | 'progress' | 'solver'
+  const [pilotView, setPilotView] = useState(null);
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [selectedTopicFilter, setSelectedTopicFilter] = useState('All');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -80,7 +83,8 @@ export default function App() {
   }, [refreshAppState]);
 
   // Navigate to problem solver
-  const handleStartSolving = (problem) => {
+  const handleStartSolving = (problem, recommendationId) => {
+    setPilotView(openPilotProblem(problem.id, recommendationId));
     setSelectedProblem(problem);
     setActiveTab('solver');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -152,6 +156,8 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'dashboard' && !isDemoProfile && <PilotPanel />}
+
           {activeTab === 'problems' && (
             <ProblemsView 
               problems={PROBLEMS}
@@ -177,6 +183,7 @@ export default function App() {
           {activeTab === 'solver' && selectedProblem && (
             <ProblemSolverView
               key={selectedProblem.id}
+              pilotView={pilotView}
               problem={selectedProblem}
               onBack={handleBackToProblems}
               onNavigateNext={handleStartSolving}

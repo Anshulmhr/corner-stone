@@ -136,6 +136,7 @@ export function getAdaptiveRecommendation() {
       const overdueTarget = pipeline.overdue[0].problem;
       return {
         problem: overdueTarget,
+        candidateIds: pipeline.overdue.map(item => item.problem.id),
         badge: 'Retention Overdue • Spaced Review',
         reason: `You have solved all ${PROBLEMS.length} problems! Re-solve ${overdueTarget.title} (${pipeline.overdue[0].daysOverdue} day(s) overdue) from memory.`,
         whyThisProblem: 'Scheduled spaced-repetition intervals protect against cognitive decay. Reviewing this problem now will restore active recall.',
@@ -160,6 +161,7 @@ export function getAdaptiveRecommendation() {
 
     return {
       problem: targetProblem,
+      candidateIds: PROBLEMS.map(p => p.id),
       badge: 'Curriculum Complete • Revision',
       reason: `You have solved all ${PROBLEMS.length} problems! Re-solve ${targetProblem.title} with fewer hints for revision.`,
       whyThisProblem: `You have completed the entire ${PROBLEMS.length}-problem curriculum. To deepen your mastery, we recommend revising ${targetProblem.title}, where you previously unlocked ${maxHints} hint(s).`,
@@ -175,6 +177,7 @@ export function getAdaptiveRecommendation() {
     const beginnerProblem = PROBLEMS.find(p => p.id === 'two-sum') || PROBLEMS[0];
     return {
       problem: beginnerProblem,
+      candidateIds: [beginnerProblem.id],
       badge: 'Beginner Baseline',
       reason: 'You have not started practising yet. Start with a beginner problem.',
       whyThisProblem: 'No previous attempts recorded. We start with a beginner-friendly problem to benchmark your problem-solving baseline.',
@@ -202,6 +205,7 @@ export function getAdaptiveRecommendation() {
         const target = unsolvedInTopic.find(p => p.difficulty === 'Easy') || unsolvedInTopic[0];
         return {
           problem: target,
+          candidateIds: unsolvedInTopic.map(p => p.id),
           badge: 'Targeted Remediation',
           reason: `You have struggled with ${count} recent ${topic.toLowerCase()} attempts. Try a simpler ${topic.toLowerCase()} problem.`,
           whyThisProblem: `Detected ${count} recent unsuccessful attempts in ${topic}. Practising this foundational problem will help you master the core pattern before tackling harder questions.`,
@@ -219,6 +223,7 @@ export function getAdaptiveRecommendation() {
     const daysOverdue = pipeline.overdue[0].daysOverdue;
     return {
       problem: topOverdue,
+      candidateIds: pipeline.overdue.map(item => item.problem.id),
       badge: 'Spaced Revision Due',
       reason: daysOverdue > 0
         ? `You have ${pipeline.overdue.length} problem(s) overdue for spaced repetition. Review ${topOverdue.title} (${daysOverdue} day(s) overdue) to prevent forgetting.`
@@ -235,6 +240,7 @@ export function getAdaptiveRecommendation() {
     const topDue = pipeline.dueToday[0].problem;
     return {
       problem: topDue,
+      candidateIds: pipeline.dueToday.map(item => item.problem.id),
       badge: 'Spaced Revision Due',
       reason: `${topDue.title} is due for spaced-repetition review today. Re-solve it from memory to reinforce retention.`,
       whyThisProblem: `Scheduled active recall strengthens long-term memory. Re-solving ${topDue.title} today keeps retention high.`,
@@ -262,6 +268,7 @@ export function getAdaptiveRecommendation() {
           if (actionType === 'COMPLEXITY_DRILL') {
             return {
               problem: targetProblem,
+              candidateIds: [targetProblem.id],
               badge: 'Complexity Reflection Due',
               reason: `Your implementation was accepted for ${targetProblem.title}, but your complexity analysis scored low. Complete the complexity reflection.`,
               whyThisProblem: 'Identified by Adaptive Intelligence Engine: Code implementation passed, but asymptotic complexity analysis scored below 60%.',
@@ -275,6 +282,7 @@ export function getAdaptiveRecommendation() {
           if (actionType === 'EDGE_CASE_REMEDIATION' && !solved.includes(probId)) {
             return {
               problem: targetProblem,
+              candidateIds: [targetProblem.id],
               badge: 'Edge-Case Debugging',
               reason: `Your conceptual understanding of ${targetProblem.title} is solid, but tests failed on edge cases. Practice boundary tracing.`,
               whyThisProblem: 'Identified by Adaptive Intelligence Engine: Strong conceptual grasp with boundary/edge-case test failures.',
@@ -288,6 +296,7 @@ export function getAdaptiveRecommendation() {
           if (actionType === 'BLIND_CHALLENGE') {
             return {
               problem: targetProblem,
+              candidateIds: [targetProblem.id],
               badge: 'Independent Recall Challenge',
               reason: `You reached an accepted solution for ${targetProblem.title} with significant hint assistance. Re-solve it independently in Blind Solve mode.`,
               whyThisProblem: 'Identified by Adaptive Intelligence Engine: Solution reached with high hint reliance (independence score < 55%).',
@@ -301,6 +310,7 @@ export function getAdaptiveRecommendation() {
           if (actionType === 'CONCEPT_REVISION' && !solved.includes(probId)) {
             return {
               problem: targetProblem,
+              candidateIds: [targetProblem.id],
               badge: 'Conceptual Review',
               reason: `Assessment detected a foundational conceptual gap in ${targetProblem.title}. Review core invariants.`,
               whyThisProblem: 'Identified by Adaptive Intelligence Engine: Conceptual understanding scored below 50%.',
@@ -331,6 +341,7 @@ export function getAdaptiveRecommendation() {
         if (unsolvedMedium) {
           return {
             problem: unsolvedMedium,
+            candidateIds: PROBLEMS.filter(p => !solved.includes(p.id) && p.difficulty === 'Medium').map(p => p.id),
             badge: 'Challenge Advance',
             reason: 'You solved your last two problems without hints. Consider trying a harder problem.',
             whyThisProblem: 'You completed your last 2 problems independently without requesting hints. You are ready to challenge yourself with higher-level constraints.',
@@ -354,6 +365,7 @@ export function getAdaptiveRecommendation() {
       const easyProb = topicProblems.find(p => p.difficulty === 'Easy') || topicProblems[0];
       return {
         problem: easyProb,
+        candidateIds: topicProblems.map(p => p.id),
         badge: 'Topic Exploration',
         reason: `You have not practised ${unpracticedTopic.topic.toLowerCase()} yet. Start with a beginner problem.`,
         whyThisProblem: `You have 0 recorded attempts in ${unpracticedTopic.topic}. Broadening your topic breadth is essential for well-rounded algorithmic competence.`,
@@ -376,6 +388,7 @@ export function getAdaptiveRecommendation() {
       const target = unsolvedInWeak.find(p => p.difficulty === 'Easy') || unsolvedInWeak[0];
       return {
         problem: target,
+        candidateIds: unsolvedInWeak.map(p => p.id),
         badge: 'Mastery Calibration',
         reason: weakTopic.evidenceLevel === 'insufficient'
           ? `You have not practised ${weakTopic.topic.toLowerCase()} yet. Start with a beginner problem.`
@@ -392,6 +405,7 @@ export function getAdaptiveRecommendation() {
   const fallback = PROBLEMS.find(p => !solved.includes(p.id)) || PROBLEMS[0];
   return {
     problem: fallback,
+    candidateIds: PROBLEMS.filter(p => !solved.includes(p.id)).map(p => p.id),
     badge: 'Curriculum Progression',
     reason: 'Recommended based on standard curriculum progression.',
     whyThisProblem: 'Selected as the next sequential foundational problem in your curriculum.',

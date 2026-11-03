@@ -19,6 +19,8 @@ import {
 import { getAdaptiveRoadmap, TOPIC_STATUSES } from '../../services/roadmapService.js';
 import { PROBLEMS } from '../../data/problems.js';
 
+import { usePilotImpression } from '../usePilotImpression.js';
+
 export default function RoadmapView({
   topicStats = [],
   solvedIds = [],
@@ -36,6 +38,13 @@ export default function RoadmapView({
   });
 
   const { nodes, recommendedTopic, recommendationReason, completedCount, totalCurriculumTopics } = roadmapData;
+
+  const topicChoices = recommendedTopic?.problems || [];
+  const nextChoice = topicChoices.find(p => !p.isSolved) || topicChoices[0];
+  const [impressionRef, shown] = usePilotImpression('recommendation', nextChoice?.id, nextChoice && {
+    surface:'roadmap', reason:recommendationReason,
+    candidates:topicChoices.filter(p => nextChoice.isSolved || !p.isSolved).map(p => p.id)
+  });
 
   const filteredNodes = nodes.filter(node => {
     if (filterStatus === 'ALL') return true;
@@ -192,11 +201,12 @@ export default function RoadmapView({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>Next available problem:</span>
               {(() => {
-                const nextProbMeta = recommendedTopic.problems.find(p => !p.isSolved) || recommendedTopic.problems[0];
+                const nextProbMeta = nextChoice;
                 const fullProblem = PROBLEMS.find(p => p.id === nextProbMeta.id);
                 return (
                   <button
-                    onClick={() => fullProblem && onSelectProblem(fullProblem)}
+                    ref={impressionRef}
+                    onClick={() => fullProblem && onSelectProblem(fullProblem, shown())}
                     className="btn btn-primary btn-sm"
                     style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
                   >

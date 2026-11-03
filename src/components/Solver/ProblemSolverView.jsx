@@ -45,7 +45,11 @@ import TestResultsPanel from './TestResultsPanel.jsx';
 import LearningCoachPanel from './LearningCoachPanel.jsx';
 import UnderstandingReflectionPanel from './UnderstandingReflectionPanel.jsx';
 
-export default function ProblemSolverView({ 
+import { viewEvent, viewing } from '../../services/pilot.js';
+import { usePilotImpression } from '../usePilotImpression.js';
+
+export default function ProblemSolverView({
+  pilotView,
   problem, 
   onBack, 
   onNavigateNext, 
@@ -71,6 +75,12 @@ export default function ProblemSolverView({
   const [blindSession, setBlindSession] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [blindResults, setBlindResults] = useState(null);
+
+  const [familiarity, setFamiliarity] = useState('');
+  const next = isSolved && recommendation?.problem?.id !== problem?.id ? recommendation : null;
+  const [nextRef, nextShown] = usePilotImpression('recommendation', next?.problem?.id, next && {
+    surface:'solver', reason:next.reason, candidates:next.candidateIds
+  });
 
   // Timer helper
   const formatTimer = (secs) => {
@@ -164,6 +174,7 @@ export default function ProblemSolverView({
     if (unlockedLevel >= 3) return;
     const next = unlockNextHint(problem.id);
     setUnlockedLevel(next);
+    viewEvent(pilotView, 'help', {source:'hint',level:next});
   };
 
   // Switch Language
@@ -188,7 +199,7 @@ export default function ProblemSolverView({
 
     try {
       const previousAttempts = getAttempts().filter(a => a.problemId === problem.id);
-      const evalOutcome = await evaluateCppSubmission(problem.id, code, previousAttempts);
+      const evalOutcome = await evaluateCppSubmission(problem.id, code, previousAttempts, pilotView);
       setEvaluationResult(evalOutcome);
 
       if (isUngradedAttempt(evalOutcome)) return;
@@ -282,6 +293,7 @@ export default function ProblemSolverView({
 
   // Manual fallback solve for JS or exploratory mode
   const handleManualSolve = () => {
+    viewEvent(pilotView,'manual');
     if (isBlindMode) {
       abandonBlindSession(problem.id);
       setIsBlindMode(false);
@@ -309,6 +321,7 @@ export default function ProblemSolverView({
 
   // Record an Incomplete/Manual Practice Attempt
   const handleRecordPracticeAttempt = () => {
+    viewEvent(pilotView,'manual');
     recordAttempt({
       problemId: problem.id,
       problemTitle: problem.title,
@@ -336,6 +349,16 @@ export default function ProblemSolverView({
 
   return (
     <div className="solver-container">
+      {viewing(pilotView) && !pilotView.previouslyPracticed && (
+        <label className="card">Pilot question: Before opening this problem, had you seen it or its solution?
+          <select aria-label="Prior familiarity" value={familiarity} disabled={Boolean(familiarity)}
+            onChange={e => { setFamiliarity(e.target.value); viewEvent(pilotView,'familiarity',{answer:e.target.value}); }}>
+            <option value="">Optional · choose an answer</option>
+            <option value="new">First time seeing it</option><option value="seen">Seen it before</option>
+            <option value="unsure">Unsure</option>
+          </select>
+        </label>
+      )}
       {/* Top Bar with Navigation & Status */}
       <div className="solver-top-bar">
         <button onClick={onBack} className="btn btn-ghost btn-sm">
@@ -833,6 +856,7 @@ export default function ProblemSolverView({
 
           {/* Cognitive Understanding & Reflection Panel */}
           <UnderstandingReflectionPanel
+            pilotView={pilotView}
             problem={problem}
             evaluationResult={evaluationResult && !isUngradedAttempt(evaluationResult) ? evaluationResult : null}
             isBlindMode={isBlindMode}
@@ -840,6 +864,7 @@ export default function ProblemSolverView({
 
           {/* Context-Aware AI Learning Coach */}
           <LearningCoachPanel
+            pilotView={pilotView}
             problem={problem}
             code={code}
             evaluationResult={evaluationResult}
@@ -849,8 +874,8 @@ export default function ProblemSolverView({
           />
 
           {/* Next Recommended Navigation Callout if Solved */}
-          {isSolved && recommendation && recommendation.problem && recommendation.problem.id !== problem.id && (
-            <div style={{
+          {next && (
+            <div ref={nextRef} style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--border-accent)',
               borderRadius: 'var(--radius-md)',
@@ -869,7 +894,7 @@ export default function ProblemSolverView({
                 </div>
               </div>
               <button 
-                onClick={() => onNavigateNext(recommendation.problem)}
+                onClick={() => onNavigateNext(recommendation.problem, nextShown())}
                 className="btn btn-primary btn-sm"
               >
                 <span>Continue</span>

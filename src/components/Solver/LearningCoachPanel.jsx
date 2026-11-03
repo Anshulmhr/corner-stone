@@ -16,7 +16,11 @@ import {
 } from 'lucide-react';
 import { requestCoachGuidance } from '../../services/coachService.js';
 
+import { viewing } from '../../services/pilot.js';
+import { usePilotImpression } from '../usePilotImpression.js';
+
 export default function LearningCoachPanel({
+  pilotView,
   problem,
   code,
   evaluationResult,
@@ -31,6 +35,12 @@ export default function LearningCoachPanel({
   const [selectedQuizOption, setSelectedQuizOption] = useState(null);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  const [helpRef] = usePilotImpression('help',problem?.id,
+    viewing(pilotView) && !isBlindMode && !loading && !errorMsg && coachResponse?.data &&
+    coachResponse.action === activeTab && coachResponse.data.category !== 'EMPTY_SUBMISSION' && {
+      openId:pilotView.id, source:'coach-'+activeTab, level:activeTab === 'hint' ? currentHintLevel : 0
+    });
 
   // Trigger coach fetch on tab change or when evaluationResult changes
   useEffect(() => {
@@ -294,7 +304,7 @@ export default function LearningCoachPanel({
           </div>
         </div>
       ) : coachData ? (
-        <div>
+        <div ref={helpRef}>
           {/* TAB 1: EXPLAIN MY MISTAKE */}
           {activeTab === 'explain' && (
             <div>
