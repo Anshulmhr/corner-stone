@@ -1,3 +1,4 @@
+import { isDemoProfile } from '../../services/progressProfile.js';
 import React, { useState } from 'react';
 import { 
   LineChart, 
@@ -23,7 +24,7 @@ export default function ProgressView({
   solvedIds = [], 
   hintsMap = {},
   mistakePatternStats = { categories: [], totalDiagnosed: 0, hasData: false },
-  onSeedDemo, 
+  onSwitchProfile,
   onResetData,
   onSelectProblem
 }) {
@@ -58,9 +59,9 @@ export default function ProgressView({
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={onSeedDemo} className="btn btn-secondary btn-sm">
+          <button onClick={onSwitchProfile} className="btn btn-secondary btn-sm">
             <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
-            <span>Load Demo Activity</span>
+            <span>{isDemoProfile ? 'Exit demo' : 'Open demo profile'}</span>
           </button>
           <button onClick={onResetData} className="btn btn-ghost btn-sm">
             <RotateCcw size={14} />
@@ -503,9 +504,9 @@ export default function ProgressView({
         ) : (
           <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-dim)' }}>
             <p style={{ marginBottom: '0.75rem' }}>No learning attempts recorded yet.</p>
-            <button onClick={onSeedDemo} className="btn btn-secondary btn-sm">
+            <button onClick={onSwitchProfile} className="btn btn-secondary btn-sm">
               <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} />
-              Load Sample Activity
+              {isDemoProfile ? 'Exit demo' : 'Open demo profile'}
             </button>
           </div>
         )}

@@ -52,7 +52,7 @@ export default function DashboardView({
             onClick={onNavigateProblems}
             className="btn btn-ghost"
           >
-            <span>Browse 10 Problems</span>
+            <span>Browse {metrics.totalProblems} Problems</span>
             <ArrowRight size={16} />
           </button>
         </div>

@@ -1,3 +1,4 @@
+import { isDemoProfile, progressStorage } from './progressProfile.js';
 const STORAGE_KEYS = {
   SOLVED: 'adaptivedsa_solved_ids',
   ATTEMPTS: 'adaptivedsa_attempts_log',
@@ -16,7 +17,7 @@ function notifyStorageChange() {
 
 export function getSolvedProblems() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SOLVED);
+    const raw = progressStorage().getItem(STORAGE_KEYS.SOLVED);
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     console.error('Failed reading solved problems', e);
@@ -31,7 +32,7 @@ export function isProblemSolved(problemId) {
 
 function readAttempts() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
+    const raw = progressStorage().getItem(STORAGE_KEYS.ATTEMPTS);
     const attempts = raw ? JSON.parse(raw) : [];
     return Array.isArray(attempts) ? attempts : [];
   } catch (e) {
@@ -60,7 +61,7 @@ export function getAttempts() {
 
 export function getUnlockedHints(problemId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.HINTS);
+    const raw = progressStorage().getItem(STORAGE_KEYS.HINTS);
     const hintsMap = raw ? JSON.parse(raw) : {};
     return hintsMap[problemId] || 0; // returns 0, 1, 2, or 3
   } catch (e) {
@@ -71,12 +72,12 @@ export function getUnlockedHints(problemId) {
 
 export function unlockNextHint(problemId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.HINTS);
+    const raw = progressStorage().getItem(STORAGE_KEYS.HINTS);
     const hintsMap = raw ? JSON.parse(raw) : {};
     const current = hintsMap[problemId] || 0;
     const nextLevel = Math.min(3, current + 1);
     hintsMap[problemId] = nextLevel;
-    localStorage.setItem(STORAGE_KEYS.HINTS, JSON.stringify(hintsMap));
+    progressStorage().setItem(STORAGE_KEYS.HINTS, JSON.stringify(hintsMap));
     notifyStorageChange();
     return nextLevel;
   } catch (e) {
@@ -87,7 +88,7 @@ export function unlockNextHint(problemId) {
 
 export function getCodeDraft(problemId, defaultCode = '', language = 'cpp') {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CODE);
+    const raw = progressStorage().getItem(STORAGE_KEYS.CODE);
     const codeMap = raw ? JSON.parse(raw) : {};
     const key = `${language}_${problemId}`;
     if (codeMap[key] !== undefined) return codeMap[key];
@@ -100,7 +101,7 @@ export function getCodeDraft(problemId, defaultCode = '', language = 'cpp') {
 
 export function saveCodeDraft(problemId, code, language = 'cpp') {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CODE);
+    const raw = progressStorage().getItem(STORAGE_KEYS.CODE);
     const codeMap = raw ? JSON.parse(raw) : {};
     const key = `${language}_${problemId}`;
     codeMap[key] = code;
@@ -108,7 +109,7 @@ export function saveCodeDraft(problemId, code, language = 'cpp') {
     if (language === 'javascript') {
       codeMap[problemId] = code;
     }
-    localStorage.setItem(STORAGE_KEYS.CODE, JSON.stringify(codeMap));
+    progressStorage().setItem(STORAGE_KEYS.CODE, JSON.stringify(codeMap));
   } catch (e) {
     console.error('Failed saving code draft', e);
   }
@@ -162,19 +163,19 @@ export function recordAttempt({
     };
     // Prepend latest
     attempts.unshift(newAttempt);
-    localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts));
+    progressStorage().setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(attempts));
 
     // If success, ensure problem is in solved list without duplicates
     if (success) {
       const solved = getSolvedProblems();
       if (!solved.includes(problemId)) {
         solved.push(problemId);
-        localStorage.setItem(STORAGE_KEYS.SOLVED, JSON.stringify(solved));
+        progressStorage().setItem(STORAGE_KEYS.SOLVED, JSON.stringify(solved));
       }
 
       // Auto-schedule for spaced repetition if not already scheduled
       try {
-        const rawRev = localStorage.getItem(STORAGE_KEYS.REVISIONS);
+        const rawRev = progressStorage().getItem(STORAGE_KEYS.REVISIONS);
         const revMap = rawRev ? JSON.parse(rawRev) : {};
         if (!revMap[problemId]) {
           const dayMs = 24 * 60 * 60 * 1000;
@@ -186,7 +187,7 @@ export function recordAttempt({
             dueDate: new Date(Date.now() + 1 * dayMs).toISOString(),
             history: []
           };
-          localStorage.setItem(STORAGE_KEYS.REVISIONS, JSON.stringify(revMap));
+          progressStorage().setItem(STORAGE_KEYS.REVISIONS, JSON.stringify(revMap));
         }
       } catch (err) {
         console.error('Error auto-scheduling revision on solve', err);
@@ -202,12 +203,14 @@ export function recordAttempt({
 
 export function clearAllProgress() {
   try {
-    localStorage.removeItem(STORAGE_KEYS.SOLVED);
-    localStorage.removeItem(STORAGE_KEYS.ATTEMPTS);
-    localStorage.removeItem(STORAGE_KEYS.HINTS);
-    localStorage.removeItem(STORAGE_KEYS.CODE);
-    localStorage.removeItem(STORAGE_KEYS.REVISIONS);
-    localStorage.removeItem(STORAGE_KEYS.ASSESSMENTS);
+    const store = progressStorage();
+    for (const key of Object.values(STORAGE_KEYS)) store.removeItem(key);
+    // Removing an item can reorder the browser's storage keys. Take a snapshot first.
+    for (const key of Object.keys(store)) {
+      if (key.startsWith('adaptivedsa_reflection_draft_') || key.startsWith('adaptivedsa_blind_session_')) {
+        store.removeItem(key);
+      }
+    }
     notifyStorageChange();
   } catch (e) {
     console.error('Failed clearing progress', e);
@@ -220,8 +223,8 @@ export function clearAllProgress() {
  */
 export function getUnderstandingAssessments(problemId = null) {
   try {
-    if (typeof localStorage === 'undefined') return [];
-    const raw = localStorage.getItem(STORAGE_KEYS.ASSESSMENTS);
+    if (!progressStorage()) return [];
+    const raw = progressStorage().getItem(STORAGE_KEYS.ASSESSMENTS);
     if (!raw) return [];
     const list = JSON.parse(raw);
     if (!Array.isArray(list)) return [];
@@ -255,7 +258,7 @@ export function getLatestAssessment(problemId) {
 export function saveUnderstandingAssessment(assessment) {
   try {
     if (!assessment || !assessment.problemId) return null;
-    if (typeof localStorage === 'undefined') return assessment;
+    if (!progressStorage()) return assessment;
 
     const list = getUnderstandingAssessments();
     
@@ -267,7 +270,7 @@ export function saveUnderstandingAssessment(assessment) {
       list.unshift(assessment);
     }
 
-    localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(list));
+    progressStorage().setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(list));
     notifyStorageChange();
     return assessment;
   } catch (e) {
@@ -281,8 +284,8 @@ export function saveUnderstandingAssessment(assessment) {
  */
 export function getReflectionDraft(problemId) {
   try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem('adaptivedsa_reflection_draft_' + problemId);
+    if (!progressStorage()) return null;
+    const raw = progressStorage().getItem('adaptivedsa_reflection_draft_' + problemId);
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     return null;
@@ -294,14 +297,17 @@ export function getReflectionDraft(problemId) {
  */
 export function saveReflectionDraft(problemId, draft) {
   try {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem('adaptivedsa_reflection_draft_' + problemId, JSON.stringify(draft));
+    if (!progressStorage()) return;
+    progressStorage().setItem('adaptivedsa_reflection_draft_' + problemId, JSON.stringify(draft));
   } catch (e) {
     console.error('Failed saving reflection draft', e);
   }
 }
 
-export function loadDemoSeedData() {
+export function initializeDemoProfile() {
+  if (!isDemoProfile) return;
+  const store = progressStorage();
+  if (store.getItem('adaptivedsa_demo_initialized')) return;
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
 
@@ -501,10 +507,10 @@ export function loadDemoSeedData() {
     }
   };
 
-  localStorage.setItem(STORAGE_KEYS.SOLVED, JSON.stringify(demoSolved));
-  localStorage.setItem(STORAGE_KEYS.HINTS, JSON.stringify(demoHints));
-  localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(demoAttempts));
-  localStorage.setItem(STORAGE_KEYS.REVISIONS, JSON.stringify(demoRevisions));
-  notifyStorageChange();
+  store.setItem(STORAGE_KEYS.SOLVED, JSON.stringify(demoSolved));
+  store.setItem(STORAGE_KEYS.HINTS, JSON.stringify(demoHints));
+  store.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(demoAttempts));
+  store.setItem(STORAGE_KEYS.REVISIONS, JSON.stringify(demoRevisions));
+  store.setItem('adaptivedsa_demo_initialized', '1');
 }
 

@@ -4,7 +4,6 @@ import {
   getSolvedProblems, 
   getAttempts, 
   getUnlockedHints, 
-  loadDemoSeedData, 
   clearAllProgress 
 } from './services/storage';
 import { 
@@ -16,6 +15,7 @@ import {
 } from './services/adaptiveEngine';
 import { getRevisionPipeline } from './services/revisionService';
 
+import { isDemoProfile, switchProgressProfile } from './services/progressProfile.js';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import DashboardView from './components/Dashboard/DashboardView';
@@ -91,17 +91,11 @@ export default function App() {
     setActiveTab('problems');
   };
 
-  // Seed demo data handler
-  const handleSeedDemo = () => {
-    loadDemoSeedData();
-    refreshAppState();
-  };
-
-  // Reset progress handler
   const handleResetData = () => {
-    if (window.confirm('Reset all solved progress, attempts, and hint unlocks to 0?')) {
+    const profile = isDemoProfile ? 'demo' : 'personal';
+    if (window.confirm(`Clear all ${profile} progress, including drafts, reflections and active challenges?`)) {
       clearAllProgress();
-      refreshAppState();
+      window.location.reload();
     }
   };
 
@@ -113,7 +107,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
-        onSeedDemo={handleSeedDemo}
+        onSwitchProfile={switchProgressProfile}
         onResetData={handleResetData}
         solvedCount={metrics.uniqueSolved}
         totalProblems={PROBLEMS.length}
@@ -133,6 +127,13 @@ export default function App() {
           dueRevisionCount={revisionPipeline.totalDueCount}
           onNavigateProblems={() => setActiveTab('problems')}
         />
+
+        {isDemoProfile && (
+          <div className="demo-profile-banner" role="status">
+            <strong>Demo profile</strong> Practice here is saved only in this tab.
+            <button className="btn btn-secondary btn-sm" onClick={switchProgressProfile}>Return to my progress</button>
+          </div>
+        )}
 
         {/* View Routing */}
         <main className="page-wrapper">
@@ -174,7 +175,8 @@ export default function App() {
           )}
 
           {activeTab === 'solver' && selectedProblem && (
-            <ProblemSolverView 
+            <ProblemSolverView
+              key={selectedProblem.id}
               problem={selectedProblem}
               onBack={handleBackToProblems}
               onNavigateNext={handleStartSolving}
@@ -190,7 +192,7 @@ export default function App() {
               solvedIds={solvedIds}
               hintsMap={hintsMap}
               mistakePatternStats={mistakePatternStats}
-              onSeedDemo={handleSeedDemo}
+              onSwitchProfile={switchProgressProfile}
               onResetData={handleResetData}
               onSelectProblem={handleStartSolving}
             />

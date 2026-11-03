@@ -13,6 +13,8 @@
 'use strict';
 
 const express = require('express');
+const path = require('node:path');
+const compiler = require('../shared/compiler.json');
 const { TEST_SUITES, gradeCase } = require('./testSuites.js');
 const { diagnose } = require('./diagnosisEngine.js');
 const { handleCoachRequest } = require('./coachService.js');
@@ -87,7 +89,7 @@ async function runCase(suite, tc, userCode, signal) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      compiler: 'gcc-head', options: 'c++17', stdin: '',
+      compiler: compiler.compiler, options: compiler.options, stdin: '',
       code: suite.buildHarness(userCode, tc.id),
     }),
     signal,
@@ -282,10 +284,14 @@ app.post('/api/coach', async (req, res) => {
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
+app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown API endpoint' }));
+app.use(express.static(path.join(__dirname, '..', 'dist')));
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 if (require.main === module) {
-  app.listen(PORT, '127.0.0.1', () => {
-    console.log(`[AdaptiveDSA API] Running on http://127.0.0.1:${PORT}`);
+  const host = process.env.HOST || '127.0.0.1';
+  app.listen(PORT, host, () => {
+    console.log(`[AdaptiveDSA API] Running on http://${host}:${PORT}`);
   });
 }
 

@@ -1,0 +1,5 @@
+{
+  "compiler": "gcc-head",
+  "options": "c++17",
+  "label": "GCC · C++17"
+}

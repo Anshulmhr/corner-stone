@@ -1,6 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Loader2 } from 'lucide-react';
 
 export default function CppCodeEditor({
   value,
@@ -9,13 +8,32 @@ export default function CppCodeEditor({
   readOnly = false,
   height = '420px'
 }) {
-  const [isEditorReady, setIsEditorReady] = useState(false);
-  const editorRef = useRef(null);
+  const [richEditorReady, setRichEditorReady] = useState(false);
+  const usingTextEditor = useRef(false);
 
-  const handleEditorDidMount = (editor, monaco) => {
-    editorRef.current = editor;
-    setIsEditorReady(true);
+  useEffect(() => {
+    let mounted = true;
+    // Plain text is editable immediately, even if the editor bundle never loads.
+    // Keep focus and selection stable if the learner has already started editing.
+    import('./monacoSetup.js').then(() => {
+      if (mounted && !usingTextEditor.current) setRichEditorReady(true);
+    }).catch(() => { /* Keep the plain-text editor available. */ });
+    return () => { mounted = false; };
+  }, []);
 
+  if (!richEditorReady) {
+    return (
+      <label className="plain-code-editor" style={{ height }}>
+        <span>Plain-text code editor</span>
+        <textarea className="editor-textarea" aria-label="Solution code" value={value ?? ''}
+          onFocus={() => { usingTextEditor.current = true; }}
+          onChange={event => onChange?.(event.target.value)}
+          readOnly={readOnly} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+      </label>
+    );
+  }
+
+  const handleEditorDidMount = (_editor, monaco) => {
     // Define custom dark theme to match AdaptiveDSA #0E0E17 surface
     try {
       monaco.editor.defineTheme('adaptivedsa-dark', {
@@ -65,21 +83,6 @@ export default function CppCodeEditor({
           renderLineHighlight: 'all',
           padding: { top: 12, bottom: 12 }
         }}
-        loading={
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            gap: '0.65rem',
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.85rem'
-          }}>
-            <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-            <span>Loading Monaco Editor...</span>
-          </div>
-        }
       />
     </div>
   );

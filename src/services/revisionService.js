@@ -1,3 +1,4 @@
+import { progressStorage } from './progressProfile.js';
 import { getSolvedProblems, recordAttempt } from './storage.js';
 import { PROBLEMS } from '../data/problems.js';
 
@@ -18,7 +19,7 @@ function notifyStorageChange() {
 export function getRevisions() {
   let revisions = {};
   try {
-    const raw = localStorage.getItem(REVISION_STORAGE_KEY);
+    const raw = progressStorage().getItem(REVISION_STORAGE_KEY);
     if (raw) {
       revisions = JSON.parse(raw);
     }
@@ -54,11 +55,11 @@ export function getRevisions() {
 }
 
 /**
- * Persists the revisions map to localStorage.
+ * Persists the revisions map to profile storage.
  */
 export function saveRevisions(revisions) {
   try {
-    localStorage.setItem(REVISION_STORAGE_KEY, JSON.stringify(revisions));
+    progressStorage().setItem(REVISION_STORAGE_KEY, JSON.stringify(revisions));
     notifyStorageChange();
   } catch (e) {
     console.error('Failed writing revision data to localStorage', e);

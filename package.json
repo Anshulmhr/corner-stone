@@ -4,24 +4,31 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "server": "node server/index.js",
-    "dev": "concurrently -k -n API,VITE -c cyan,magenta \"node server/index.js\" \"vite\"",
+    "server": "node --env-file-if-exists=.env server/index.js",
+    "dev": "concurrently -k -n API,VITE -c cyan,magenta \"node --env-file-if-exists=.env server/index.js\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test_end_to_end_audit.cjs",
-    "start": "node server/index.js",
-    "test:grading": "node test_grading_local.cjs && node --test test_grading_outcomes.mjs"
+    "test": "node scripts/test.mjs",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "test:grading": "node test_grading_local.cjs && node --test test_grading_outcomes.mjs",
+    "test:browser": "node tests/stability-browser.mjs",
+    "test:live": "node test_end_to_end_audit.cjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@vitejs/plugin-react": "^6.1.2",
+    "express": "^5.3.0",
     "lucide-react": "^1.61.0",
+    "monaco-editor": "0.57.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
-    "express": "^5.3.0",
+    "playwright": "^1.62.1",
     "vite": "^8.3.4"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -7,7 +7,7 @@ export default function Navbar({
   currentProblem, 
   overallAccuracy = 0, 
   solvedCount = 0,
-  totalProblems = 10,
+  totalProblems,
   dueRevisionCount = 0,
   onNavigateProblems
 }) {

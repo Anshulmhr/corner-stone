@@ -1,3 +1,4 @@
+import { isDemoProfile } from '../services/progressProfile.js';
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -16,10 +17,10 @@ export default function Sidebar({
   setActiveTab, 
   mobileOpen, 
   setMobileOpen,
-  onSeedDemo,
+  onSwitchProfile,
   onResetData,
   solvedCount = 0,
-  totalProblems = 10,
+  totalProblems,
   dueRevisionCount = 0
 }) {
   const navItems = [
@@ -137,22 +138,22 @@ export default function Sidebar({
         <div className="sidebar-footer">
           <div className="sidebar-demo-badge">
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span className="status-dot"></span> Local Storage
+              <span className="status-dot"></span> {isDemoProfile ? 'Tab storage' : 'Local storage'}
             </span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--accent-primary)' }}>
-              v1.0 Demo
+              {isDemoProfile ? 'Demo profile' : 'Personal profile'}
             </span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
-              onClick={onSeedDemo} 
+              onClick={onSwitchProfile}
               className="btn btn-secondary btn-sm"
               style={{ flex: 1, fontSize: '0.725rem', padding: '0.4rem 0.5rem' }}
-              title="Populate demo data with sample attempts and heatmap"
+              title={isDemoProfile ? 'Return to personal practice' : 'Try a separate sample profile'}
             >
               <Sparkles size={13} style={{ color: 'var(--accent-primary)' }} />
-              Demo Data
+              {isDemoProfile ? 'Exit demo' : 'Demo Data'}
             </button>
             <button 
               onClick={onResetData} 

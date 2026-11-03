@@ -1,3 +1,4 @@
+import compiler from '../../../shared/compiler.json';
 import React, { useState } from 'react';
 import { 
   CheckCircle2, 
@@ -78,7 +79,7 @@ export default function TestResultsPanel({
             Compiling and Executing C++ Solution...
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '420px' }}>
-            Sending source to secure GCC 10.2 sandbox, running all test cases, and evaluating output correctness.
+            Sending source to secure {compiler.label} sandbox, running all test cases, and evaluating output correctness.
           </p>
         </div>
       </div>

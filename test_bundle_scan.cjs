@@ -1,14 +1,16 @@
 const fs = require('fs');
 const assets = fs.readdirSync('dist/assets');
-const jsFile = assets.find(f => f.endsWith('.js'));
-const bundle = fs.readFileSync('dist/assets/' + jsFile, 'utf8');
+const jsFiles = assets.filter(name => name.endsWith('.js'));
+if (!jsFiles.length) throw new Error('Build produced no JavaScript assets.');
+const bundle = jsFiles.map(name => fs.readFileSync('dist/assets/' + name, 'utf8')).join('\n');
+
 
 const checks = [
   ['Hidden input listen/silent',    'listen", t = "silent'],
   ['Hidden input -3,4,3,90',        '-3, 4, 3, 90'],
   ['Hidden expected [0, 2]',        '[0, 2]'],
   ['buildHarness function',         'buildHarness'],
-  ['compareOutputs function',       'compareOutputs'],
+  ['gradeCase function',            'gradeCase'],
   // NOTE: 'expectedOutput' as a string is used as a React prop name in TestResultsPanel.jsx
   //       (renders the value sent back from the server, which is '[Protected]' for hidden tests).
   //       Actual expected output VALUES are what must not be present — checked above.
@@ -39,8 +41,9 @@ console.log(apiPresent ? 'PRESENT: /api/execute proxy call' : 'MISSING: /api/exe
 
 const coachPresent = bundle.includes('/api/coach');
 console.log(coachPresent ? 'PRESENT: /api/coach proxy call' : 'MISSING: /api/coach');
-if (!coachPresent) anyFail = true;
+if (!apiPresent || !coachPresent) anyFail = true;
 
 console.log('');
 console.log(anyFail ? 'WARNING: Sensitive strings found in bundle!' : 'PASS: Bundle is clean - no hidden test data.');
-console.log('Bundle file: ' + jsFile + ' | Size: ' + (bundle.length / 1024).toFixed(1) + 'KB');
+console.log('Scanned ' + jsFiles.length + ' JavaScript asset(s).');
+if (anyFail) process.exitCode = 1;

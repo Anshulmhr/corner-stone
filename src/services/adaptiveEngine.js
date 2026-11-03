@@ -162,7 +162,7 @@ export function getAdaptiveRecommendation() {
       problem: targetProblem,
       badge: 'Curriculum Complete • Revision',
       reason: `You have solved all ${PROBLEMS.length} problems! Re-solve ${targetProblem.title} with fewer hints for revision.`,
-      whyThisProblem: `You have completed the entire 10-problem curriculum. To deepen your mastery, we recommend revising ${targetProblem.title}, where you previously unlocked ${maxHints} hint(s).`,
+      whyThisProblem: `You have completed the entire ${PROBLEMS.length}-problem curriculum. To deepen your mastery, we recommend revising ${targetProblem.title}, where you previously unlocked ${maxHints} hint(s).`,
       targetMetric: 'Zero-Hint Challenge',
       difficulty: targetProblem.difficulty,
       topic: targetProblem.topic,

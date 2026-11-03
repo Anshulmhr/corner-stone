@@ -1374,3 +1374,18 @@ code, pre {
   margin-bottom: 1.25rem;
   animation: fadeIn 0.3s ease-in-out;
 }
+
+.demo-profile-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem;
+  padding: .75rem 1.25rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.plain-code-editor { display: flex; flex-direction: column; }
+.plain-code-editor > span { padding: .45rem 1.25rem; font-size: .8rem; color: var(--text-muted); }
+.plain-code-editor textarea { flex: 1; min-height: 0; resize: none; }
+.plain-code-editor textarea:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }

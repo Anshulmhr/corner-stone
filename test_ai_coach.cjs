@@ -183,6 +183,8 @@ async function runAll() {
 
   await itAsync('Recovers gracefully to deterministic fallback if external provider fails/times out', async () => {
     const originalGemini = process.env.GEMINI_API_KEY;
+    const previousFetch = global.fetch;
+    global.fetch = async () => { throw new Error('Simulated provider outage'); };
     process.env.GEMINI_API_KEY = 'INVALID_MOCK_KEY_FOR_TESTING';
 
     try {
@@ -203,6 +205,7 @@ async function runAll() {
       assert.strictEqual(res.data.category, 'COMPILATION_ERROR');
       assert.ok(res.data.details.includes('semicolon'), 'Contains compilation guidance');
     } finally {
+      global.fetch = previousFetch;
       if (originalGemini) {
         process.env.GEMINI_API_KEY = originalGemini;
       } else {

@@ -72,7 +72,7 @@ export const ROADMAP_TOPICS = [
     prerequisites: ['Trees', 'Binary Search'],
     coveredInCurriculum: false,
     estimatedDifficulty: 'Advanced',
-    scopeNote: 'Curriculum Scope Limitation: Not covered in current 20-problem demo dataset. Practice problems planned for future expansion.'
+    scopeNote: 'Curriculum Scope Limitation: Not covered in current curriculum. Practice problems planned for future expansion.'
   },
   {
     id: 'graphs',
@@ -82,7 +82,7 @@ export const ROADMAP_TOPICS = [
     prerequisites: ['Trees', 'Stacks'],
     coveredInCurriculum: false,
     estimatedDifficulty: 'Advanced',
-    scopeNote: 'Curriculum Scope Limitation: Not covered in current 20-problem demo dataset. Practice problems planned for future expansion.'
+    scopeNote: 'Curriculum Scope Limitation: Not covered in current curriculum. Practice problems planned for future expansion.'
   },
   {
     id: 'dynamic-programming',
@@ -92,7 +92,7 @@ export const ROADMAP_TOPICS = [
     prerequisites: ['Arrays', 'Binary Search'],
     coveredInCurriculum: false,
     estimatedDifficulty: 'Advanced',
-    scopeNote: 'Curriculum Scope Limitation: Not covered in current 20-problem demo dataset. Practice problems planned for future expansion.'
+    scopeNote: 'Curriculum Scope Limitation: Not covered in current curriculum. Practice problems planned for future expansion.'
   }
 ];
 
@@ -170,7 +170,7 @@ export function getAdaptiveRoadmap({
         statusReason = `Locked: requires completion of ${unmetPrerequisites.join(', ')}.`;
       } else {
         status = TOPIC_STATUSES.READY;
-        statusReason = 'All prerequisites satisfied. (Practice problems not in current 20-problem scope).';
+        statusReason = 'All prerequisites satisfied. (Practice problems not in current curriculum).';
       }
     } else if (!isUnlocked) {
       status = TOPIC_STATUSES.LOCKED;

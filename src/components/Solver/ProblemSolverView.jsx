@@ -1,3 +1,4 @@
+import compiler from '../../../shared/compiler.json';
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
@@ -55,7 +56,9 @@ export default function ProblemSolverView({
 
   const [language, setLanguage] = useState(isCppSupported ? 'cpp' : 'javascript');
   const [unlockedLevel, setUnlockedLevel] = useState(0);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => getCodeDraft(
+    problem?.id, cppStarterCode || problem?.starterCode || '', language
+  ));
   const [isSolved, setIsSolved] = useState(false);
   const [alertMessage, setAlertMessage] = useState(null);
   
@@ -109,12 +112,7 @@ export default function ProblemSolverView({
       setElapsedSeconds(0);
     }
 
-    const defaultStarter = (language === 'cpp' && cppStarterCode)
-      ? cppStarterCode
-      : problem.starterCode;
-
-    setCode(getCodeDraft(problem.id, defaultStarter, language));
-  }, [problem, language, cppStarterCode]);
+  }, [problem, language]);
 
   if (!problem) return null;
 
@@ -690,7 +688,7 @@ export default function ProblemSolverView({
             }}>
               <ShieldCheck size={16} style={{ color: 'var(--accent-success)', flexShrink: 0 }} />
               <span>
-                <strong>Real C++ Execution Active:</strong> Code compiles with GCC 10.2 and runs in a sandbox. Submissions are genuinely evaluated against real test cases.
+                <strong>Real C++ Execution Active:</strong> Code compiles with {compiler.label} and runs in a sandbox. Submissions are genuinely evaluated against real test cases.
               </span>
             </div>
           ) : (
@@ -748,7 +746,7 @@ export default function ProblemSolverView({
                     borderRadius: 'var(--radius-sm)'
                   }}
                 >
-                  {isCppSupported && <option value="cpp">C++ (GCC 10.2)</option>}
+                  {isCppSupported && <option value="cpp">C++ ({compiler.label})</option>}
                   <option value="javascript">JavaScript (Manual)</option>
                 </select>
 

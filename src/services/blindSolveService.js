@@ -1,3 +1,4 @@
+import { progressStorage } from './progressProfile.js';
 // Service for Blind Solve Challenge Mode
 // Provides session tracking, timing, transparent independence scoring, and session lifecycle.
 
@@ -67,8 +68,8 @@ export function calculateIndependenceScore({ success, submissionCount = 1, hints
  */
 export function getActiveBlindSession(problemId) {
   try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(BLIND_SESSION_KEY_PREFIX + problemId);
+    if (!progressStorage()) return null;
+    const raw = progressStorage().getItem(BLIND_SESSION_KEY_PREFIX + problemId);
     if (!raw) return null;
     const session = JSON.parse(raw);
     if (session && session.active) {
@@ -94,8 +95,8 @@ export function startBlindSession(problemId, currentHintsUnlocked = 0) {
       hintsUsedInSession: 0,
       active: true
     };
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(BLIND_SESSION_KEY_PREFIX + problemId, JSON.stringify(session));
+    if (progressStorage()) {
+      progressStorage().setItem(BLIND_SESSION_KEY_PREFIX + problemId, JSON.stringify(session));
     }
     return session;
   } catch (e) {
@@ -112,8 +113,8 @@ export function incrementBlindSubmissions(problemId) {
     const session = getActiveBlindSession(problemId);
     if (!session) return null;
     session.submissionCount = (session.submissionCount || 0) + 1;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(BLIND_SESSION_KEY_PREFIX + problemId, JSON.stringify(session));
+    if (progressStorage()) {
+      progressStorage().setItem(BLIND_SESSION_KEY_PREFIX + problemId, JSON.stringify(session));
     }
     return session;
   } catch (e) {
@@ -128,8 +129,8 @@ export function incrementBlindSubmissions(problemId) {
 export function endBlindSession(problemId) {
   try {
     const session = getActiveBlindSession(problemId);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(BLIND_SESSION_KEY_PREFIX + problemId);
+    if (progressStorage()) {
+      progressStorage().removeItem(BLIND_SESSION_KEY_PREFIX + problemId);
     }
     if (!session) return null;
 
@@ -153,8 +154,8 @@ export function endBlindSession(problemId) {
 export function abandonBlindSession(problemId) {
   try {
     const session = getActiveBlindSession(problemId);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(BLIND_SESSION_KEY_PREFIX + problemId);
+    if (progressStorage()) {
+      progressStorage().removeItem(BLIND_SESSION_KEY_PREFIX + problemId);
     }
     if (!session) return null;
 
