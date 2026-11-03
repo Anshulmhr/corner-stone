@@ -11,11 +11,67 @@
 
 'use strict';
 
+const { isDeepStrictEqual } = require('node:util');
+
 // ─── Per-problem test suites ──────────────────────────────────────────────────
+
+// One sandbox job returns one value. Keep the answer separate from student
+// stdout (including printf and code that changes iostream synchronization).
+function caseMain(body) {
+  return `
+#include <cstdio>
+#include <sstream>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
+int main() {
+#ifdef _WIN32
+    FILE* verdict = _fdopen(_dup(_fileno(stdout)), "w");
+    if (!verdict || _dup2(_fileno(stderr), _fileno(stdout)) != 0) return 1;
+#else
+    FILE* verdict = fdopen(dup(fileno(stdout)), "w");
+    if (!verdict || dup2(fileno(stderr), fileno(stdout)) < 0) return 1;
+#endif
+    std::ostringstream out;
+    Solution sol;
+    ${body}
+    std::fprintf(verdict, "%s", out.str().c_str());
+    return std::fclose(verdict) == 0 ? 0 : 1;
+}`;
+}
 
 const TEST_SUITES = {
   'two-sum': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> n = {2, 7, 11, 15};
+         auto r = sol.twoSum(n, 9);
+         if (r.size() == 2) {
+             int a = min(r[0], r[1]), b = max(r[0], r[1]);
+             out << "[" << a << ", " << b << "]";
+         } else { out << "[]"; }`,
+        `vector<int> n = {3, 2, 4};
+         auto r = sol.twoSum(n, 6);
+         if (r.size() == 2) {
+             int a = min(r[0], r[1]), b = max(r[0], r[1]);
+             out << "[" << a << ", " << b << "]";
+         } else { out << "[]"; }`,
+        `vector<int> n = {3, 3};
+         auto r = sol.twoSum(n, 6);
+         if (r.size() == 2) {
+             int a = min(r[0], r[1]), b = max(r[0], r[1]);
+             out << "[" << a << ", " << b << "]";
+         } else { out << "[]"; }`,
+        `vector<int> n = {-3, 4, 3, 90};
+         auto r = sol.twoSum(n, 0);
+         if (r.size() == 2) {
+             int a = min(r[0], r[1]), b = max(r[0], r[1]);
+             out << "[" << a << ", " << b << "]";
+         } else { out << "[]"; }`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -26,51 +82,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    // Test 0 — visible
-    try {
-        vector<int> n0 = {2, 7, 11, 15};
-        auto r0 = sol.twoSum(n0, 9);
-        if (r0.size() >= 2) {
-            int a = min(r0[0], r0[1]), b = max(r0[0], r0[1]);
-            cout << "CASE:0:OUT:[" << a << ", " << b << "]" << endl;
-        } else { cout << "CASE:0:OUT:[]" << endl; }
-    } catch (...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    // Test 1 — visible
-    try {
-        vector<int> n1 = {3, 2, 4};
-        auto r1 = sol.twoSum(n1, 6);
-        if (r1.size() >= 2) {
-            int a = min(r1[0], r1[1]), b = max(r1[0], r1[1]);
-            cout << "CASE:1:OUT:[" << a << ", " << b << "]" << endl;
-        } else { cout << "CASE:1:OUT:[]" << endl; }
-    } catch (...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    // Test 2 — visible
-    try {
-        vector<int> n2 = {3, 3};
-        auto r2 = sol.twoSum(n2, 6);
-        if (r2.size() >= 2) {
-            int a = min(r2[0], r2[1]), b = max(r2[0], r2[1]);
-            cout << "CASE:2:OUT:[" << a << ", " << b << "]" << endl;
-        } else { cout << "CASE:2:OUT:[]" << endl; }
-    } catch (...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // Test 3 — HIDDEN (negative numbers)
-    try {
-        vector<int> n3 = {-3, 4, 3, 90};
-        auto r3 = sol.twoSum(n3, 0);
-        if (r3.size() >= 2) {
-            int a = min(r3[0], r3[1]), b = max(r3[0], r3[1]);
-            cout << "CASE:3:OUT:[" << a << ", " << b << "]" << endl;
-        } else { cout << "CASE:3:OUT:[]" << endl; }
-    } catch (...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
 
@@ -91,7 +103,17 @@ int main() {
   },
 
   'best-time-to-buy-and-sell-stock': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> p={7,1,5,3,6,4};
+         out << sol.maxProfit(p);`,
+        `vector<int> p={7,6,4,3,1};
+         out << sol.maxProfit(p);`,
+        `vector<int> p={2,4,1};
+         out << sol.maxProfit(p);`,
+        `vector<int> p={1,2};
+         out << sol.maxProfit(p);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -100,24 +122,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<int> p0={7,1,5,3,6,4}; cout<<"CASE:0:OUT:"<<sol.maxProfit(p0)<<endl; }
-    catch(...) { cout<<"CASE:0:ERROR:Exception thrown"<<endl; }
-
-    try { vector<int> p1={7,6,4,3,1}; cout<<"CASE:1:OUT:"<<sol.maxProfit(p1)<<endl; }
-    catch(...) { cout<<"CASE:1:ERROR:Exception thrown"<<endl; }
-
-    try { vector<int> p2={2,4,1}; cout<<"CASE:2:OUT:"<<sol.maxProfit(p2)<<endl; }
-    catch(...) { cout<<"CASE:2:ERROR:Exception thrown"<<endl; }
-
-    // HIDDEN
-    try { vector<int> p3={1,2}; cout<<"CASE:3:OUT:"<<sol.maxProfit(p3)<<endl; }
-    catch(...) { cout<<"CASE:3:ERROR:Exception thrown"<<endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
 
@@ -133,7 +138,17 @@ int main() {
   },
 
   'valid-anagram': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `bool r=sol.isAnagram("anagram","nagaram");
+         out << (r?"true":"false");`,
+        `bool r=sol.isAnagram("rat","car");
+         out << (r?"true":"false");`,
+        `bool r=sol.isAnagram("a","ab");
+         out << (r?"true":"false");`,
+        `bool r=sol.isAnagram("listen","silent");
+         out << (r?"true":"false");`
+      ];
       return `
 #include <iostream>
 #include <string>
@@ -143,24 +158,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { bool r0=sol.isAnagram("anagram","nagaram"); cout<<"CASE:0:OUT:"<<(r0?"true":"false")<<endl; }
-    catch(...) { cout<<"CASE:0:ERROR:Exception thrown"<<endl; }
-
-    try { bool r1=sol.isAnagram("rat","car"); cout<<"CASE:1:OUT:"<<(r1?"true":"false")<<endl; }
-    catch(...) { cout<<"CASE:1:ERROR:Exception thrown"<<endl; }
-
-    try { bool r2=sol.isAnagram("a","ab"); cout<<"CASE:2:OUT:"<<(r2?"true":"false")<<endl; }
-    catch(...) { cout<<"CASE:2:ERROR:Exception thrown"<<endl; }
-
-    // HIDDEN
-    try { bool r3=sol.isAnagram("listen","silent"); cout<<"CASE:3:OUT:"<<(r3?"true":"false")<<endl; }
-    catch(...) { cout<<"CASE:3:ERROR:Exception thrown"<<endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
 
@@ -176,7 +174,17 @@ int main() {
   },
 
   'contains-duplicate': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> n = {1, 2, 3, 1};
+         out << (sol.containsDuplicate(n) ? "true" : "false");`,
+        `vector<int> n = {1, 2, 3, 4};
+         out << (sol.containsDuplicate(n) ? "true" : "false");`,
+        `vector<int> n = {1, 1, 1, 3, 3, 4, 3, 2, 4, 2};
+         out << (sol.containsDuplicate(n) ? "true" : "false");`,
+        `vector<int> n = {-1, -2, -3, -1};
+         out << (sol.containsDuplicate(n) ? "true" : "false");`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -185,24 +193,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<int> n0 = {1, 2, 3, 1}; cout << "CASE:0:OUT:" << (sol.containsDuplicate(n0) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n1 = {1, 2, 3, 4}; cout << "CASE:1:OUT:" << (sol.containsDuplicate(n1) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n2 = {1, 1, 1, 3, 3, 4, 3, 2, 4, 2}; cout << "CASE:2:OUT:" << (sol.containsDuplicate(n2) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> n3 = {-1, -2, -3, -1}; cout << "CASE:3:OUT:" << (sol.containsDuplicate(n3) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: 'true', 1: 'false', 2: 'true', 3: 'true' },
@@ -217,7 +208,21 @@ int main() {
   },
 
   'product-of-array-except-self': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> n = {1, 2, 3, 4};
+         auto r = sol.productExceptSelf(n);
+         printVec(out, r);`,
+        `vector<int> n = {-1, 1, 0, -3, 3};
+         auto r = sol.productExceptSelf(n);
+         printVec(out, r);`,
+        `vector<int> n = {2, 3};
+         auto r = sol.productExceptSelf(n);
+         printVec(out, r);`,
+        `vector<int> n = {0, 0};
+         auto r = sol.productExceptSelf(n);
+         printVec(out, r);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -225,32 +230,15 @@ using namespace std;
 
 ${userCode}
 
-void printVec(const vector<int>& v) {
-    cout << "[";
+void printVec(ostream& out, const vector<int>& v) {
+    out << "[";
     for (size_t i = 0; i < v.size(); ++i) {
-        cout << v[i] << (i + 1 < v.size() ? ", " : "");
+        out << v[i] << (i + 1 < v.size() ? ", " : "");
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try { vector<int> n0 = {1, 2, 3, 4}; auto r0 = sol.productExceptSelf(n0); cout << "CASE:0:OUT:"; printVec(r0); cout << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n1 = {-1, 1, 0, -3, 3}; auto r1 = sol.productExceptSelf(n1); cout << "CASE:1:OUT:"; printVec(r1); cout << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n2 = {2, 3}; auto r2 = sol.productExceptSelf(n2); cout << "CASE:2:OUT:"; printVec(r2); cout << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> n3 = {0, 0}; auto r3 = sol.productExceptSelf(n3); cout << "CASE:3:OUT:"; printVec(r3); cout << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[24, 12, 8, 6]', 1: '[0, 0, 9, 0, 0]', 2: '[3, 2]', 3: '[0, 0]' },
@@ -265,7 +253,13 @@ int main() {
   },
 
   'valid-palindrome': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `out << (sol.isPalindrome("A man, a plan, a canal: Panama") ? "true" : "false");`,
+        `out << (sol.isPalindrome("race a car") ? "true" : "false");`,
+        `out << (sol.isPalindrome(" ") ? "true" : "false");`,
+        `out << (sol.isPalindrome("0P") ? "true" : "false");`
+      ];
       return `
 #include <iostream>
 #include <string>
@@ -274,24 +268,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { cout << "CASE:0:OUT:" << (sol.isPalindrome("A man, a plan, a canal: Panama") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:1:OUT:" << (sol.isPalindrome("race a car") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:2:OUT:" << (sol.isPalindrome(" ") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { cout << "CASE:3:OUT:" << (sol.isPalindrome("0P") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: 'true', 1: 'false', 2: 'true', 3: 'false' },
@@ -306,7 +283,17 @@ int main() {
   },
 
   'find-minimum-in-rotated-sorted-array': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> n = {3, 4, 5, 1, 2};
+         out << sol.findMin(n);`,
+        `vector<int> n = {4, 5, 6, 7, 0, 1, 2};
+         out << sol.findMin(n);`,
+        `vector<int> n = {11, 13, 15, 17};
+         out << sol.findMin(n);`,
+        `vector<int> n = {2, 1};
+         out << sol.findMin(n);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -314,24 +301,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<int> n0 = {3, 4, 5, 1, 2}; cout << "CASE:0:OUT:" << sol.findMin(n0) << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n1 = {4, 5, 6, 7, 0, 1, 2}; cout << "CASE:1:OUT:" << sol.findMin(n1) << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> n2 = {11, 13, 15, 17}; cout << "CASE:2:OUT:" << sol.findMin(n2) << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> n3 = {2, 1}; cout << "CASE:3:OUT:" << sol.findMin(n3) << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '1', 1: '0', 2: '11', 3: '1' },
@@ -346,7 +316,21 @@ int main() {
   },
 
   'daily-temperatures': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> t = {73, 74, 75, 71, 69, 72, 76, 73};
+         auto r = sol.dailyTemperatures(t);
+         printVec(out, r);`,
+        `vector<int> t = {30, 40, 50, 60};
+         auto r = sol.dailyTemperatures(t);
+         printVec(out, r);`,
+        `vector<int> t = {30, 60, 90};
+         auto r = sol.dailyTemperatures(t);
+         printVec(out, r);`,
+        `vector<int> t = {89, 62, 70, 58, 47, 47, 46, 76, 100, 70};
+         auto r = sol.dailyTemperatures(t);
+         printVec(out, r);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -355,32 +339,15 @@ using namespace std;
 
 ${userCode}
 
-void printVec(const vector<int>& v) {
-    cout << "[";
+void printVec(ostream& out, const vector<int>& v) {
+    out << "[";
     for (size_t i = 0; i < v.size(); ++i) {
-        cout << v[i] << (i + 1 < v.size() ? ", " : "");
+        out << v[i] << (i + 1 < v.size() ? ", " : "");
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try { vector<int> t0 = {73, 74, 75, 71, 69, 72, 76, 73}; auto r0 = sol.dailyTemperatures(t0); cout << "CASE:0:OUT:"; printVec(r0); cout << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> t1 = {30, 40, 50, 60}; auto r1 = sol.dailyTemperatures(t1); cout << "CASE:1:OUT:"; printVec(r1); cout << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> t2 = {30, 60, 90}; auto r2 = sol.dailyTemperatures(t2); cout << "CASE:2:OUT:"; printVec(r2); cout << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> t3 = {89, 62, 70, 58, 47, 47, 46, 76, 100, 70}; auto r3 = sol.dailyTemperatures(t3); cout << "CASE:3:OUT:"; printVec(r3); cout << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[1, 1, 4, 2, 1, 1, 0, 0]', 1: '[1, 1, 1, 0]', 2: '[1, 1, 0]', 3: '[8, 1, 5, 4, 3, 2, 1, 1, 0, 0]' },
@@ -395,7 +362,17 @@ int main() {
   },
 
   'evaluate-reverse-polish-notation': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<string> t = {"2", "1", "+", "3", "*"};
+         out << sol.evalRPN(t);`,
+        `vector<string> t = {"4", "13", "5", "/", "+"};
+         out << sol.evalRPN(t);`,
+        `vector<string> t = {"10", "6", "9", "3", "+", "-11", "*", "/", "*", "17", "+", "5", "+"};
+         out << sol.evalRPN(t);`,
+        `vector<string> t = {"3", "-4", "+"};
+         out << sol.evalRPN(t);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -405,24 +382,7 @@ using namespace std;
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<string> t0 = {"2", "1", "+", "3", "*"}; cout << "CASE:0:OUT:" << sol.evalRPN(t0) << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<string> t1 = {"4", "13", "5", "/", "+"}; cout << "CASE:1:OUT:" << sol.evalRPN(t1) << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<string> t2 = {"10", "6", "9", "3", "+", "-11", "*", "/", "*", "17", "+", "5", "+"}; cout << "CASE:2:OUT:" << sol.evalRPN(t2) << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<string> t3 = {"3", "-4", "+"}; cout << "CASE:3:OUT:" << sol.evalRPN(t3) << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '9', 1: '6', 2: '22', 3: '-1' },
@@ -437,7 +397,17 @@ int main() {
   },
 
   'linked-list-cycle': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `ListNode* h = makeCycleList({3, 2, 0, -4}, 1);
+         out << (sol.hasCycle(h) ? "true" : "false");`,
+        `ListNode* h = makeCycleList({1, 2}, 0);
+         out << (sol.hasCycle(h) ? "true" : "false");`,
+        `ListNode* h = makeCycleList({1}, -1);
+         out << (sol.hasCycle(h) ? "true" : "false");`,
+        `ListNode* h = makeCycleList({-1, -7, 7, -4, 19}, -1);
+         out << (sol.hasCycle(h) ? "true" : "false");`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -460,24 +430,7 @@ ListNode* makeCycleList(const vector<int>& vals, int pos) {
     return nodes[0];
 }
 
-int main() {
-    Solution sol;
-
-    try { ListNode* h0 = makeCycleList({3, 2, 0, -4}, 1); cout << "CASE:0:OUT:" << (sol.hasCycle(h0) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h1 = makeCycleList({1, 2}, 0); cout << "CASE:1:OUT:" << (sol.hasCycle(h1) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h2 = makeCycleList({1}, -1); cout << "CASE:2:OUT:" << (sol.hasCycle(h2) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { ListNode* h3 = makeCycleList({-1, -7, 7, -4, 19}, -1); cout << "CASE:3:OUT:" << (sol.hasCycle(h3) ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: 'true', 1: 'true', 2: 'false', 3: 'false' },
@@ -492,7 +445,21 @@ int main() {
   },
 
   'middle-of-the-linked-list': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `ListNode* h = makeList({1, 2, 3, 4, 5});
+         auto r = sol.middleNode(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({1, 2, 3, 4, 5, 6});
+         auto r = sol.middleNode(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({1});
+         auto r = sol.middleNode(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({10, 20});
+         auto r = sol.middleNode(h);
+         printList(out, r);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -517,33 +484,16 @@ ListNode* makeList(const vector<int>& vals) {
     return head;
 }
 
-void printList(ListNode* head) {
-    cout << "[";
+void printList(ostream& out, ListNode* head) {
+    out << "[";
     while (head) {
-        cout << head->val << (head->next ? ", " : "");
+        out << head->val << (head->next ? ", " : "");
         head = head->next;
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try { ListNode* h0 = makeList({1, 2, 3, 4, 5}); auto r0 = sol.middleNode(h0); cout << "CASE:0:OUT:"; printList(r0); cout << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h1 = makeList({1, 2, 3, 4, 5, 6}); auto r1 = sol.middleNode(h1); cout << "CASE:1:OUT:"; printList(r1); cout << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h2 = makeList({1}); auto r2 = sol.middleNode(h2); cout << "CASE:2:OUT:"; printList(r2); cout << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { ListNode* h3 = makeList({10, 20}); auto r3 = sol.middleNode(h3); cout << "CASE:3:OUT:"; printList(r3); cout << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[3, 4, 5]', 1: '[4, 5, 6]', 2: '[1]', 3: '[20]' },
@@ -558,7 +508,19 @@ int main() {
   },
 
   'same-tree': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `TreeNode* p = new TreeNode(1); p->left = new TreeNode(2); p->right = new TreeNode(3);
+         TreeNode* q = new TreeNode(1); q->left = new TreeNode(2); q->right = new TreeNode(3);
+         out << (sol.isSameTree(p, q) ? "true" : "false");`,
+        `TreeNode* p = new TreeNode(1); p->left = new TreeNode(2);
+         TreeNode* q = new TreeNode(1); q->right = new TreeNode(2);
+         out << (sol.isSameTree(p, q) ? "true" : "false");`,
+        `TreeNode* p = new TreeNode(1); p->left = new TreeNode(2); p->right = new TreeNode(1);
+         TreeNode* q = new TreeNode(1); q->left = new TreeNode(1); q->right = new TreeNode(2);
+         out << (sol.isSameTree(p, q) ? "true" : "false");`,
+        `out << (sol.isSameTree(nullptr, nullptr) ? "true" : "false");`
+      ];
       return `
 #include <iostream>
 using namespace std;
@@ -572,34 +534,7 @@ struct TreeNode {
 
 ${userCode}
 
-int main() {
-    Solution sol;
-
-    try {
-        TreeNode* p0 = new TreeNode(1); p0->left = new TreeNode(2); p0->right = new TreeNode(3);
-        TreeNode* q0 = new TreeNode(1); q0->left = new TreeNode(2); q0->right = new TreeNode(3);
-        cout << "CASE:0:OUT:" << (sol.isSameTree(p0, q0) ? "true" : "false") << endl;
-    } catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try {
-        TreeNode* p1 = new TreeNode(1); p1->left = new TreeNode(2);
-        TreeNode* q1 = new TreeNode(1); q1->right = new TreeNode(2);
-        cout << "CASE:1:OUT:" << (sol.isSameTree(p1, q1) ? "true" : "false") << endl;
-    } catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try {
-        TreeNode* p2 = new TreeNode(1); p2->left = new TreeNode(2); p2->right = new TreeNode(1);
-        TreeNode* q2 = new TreeNode(1); q2->left = new TreeNode(1); q2->right = new TreeNode(2);
-        cout << "CASE:2:OUT:" << (sol.isSameTree(p2, q2) ? "true" : "false") << endl;
-    } catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try {
-        cout << "CASE:3:OUT:" << (sol.isSameTree(nullptr, nullptr) ? "true" : "false") << endl;
-    } catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: 'true', 1: 'false', 2: 'false', 3: 'true' },
@@ -614,7 +549,25 @@ int main() {
   },
 
   'invert-binary-tree': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `TreeNode* r = new TreeNode(4);
+         r->left = new TreeNode(2); r->right = new TreeNode(7);
+         r->left->left = new TreeNode(1); r->left->right = new TreeNode(3);
+         r->right->left = new TreeNode(6); r->right->right = new TreeNode(9);
+         auto inv = sol.invertTree(r);
+         printTree(out, inv);`,
+        `TreeNode* r = new TreeNode(2);
+         r->left = new TreeNode(1); r->right = new TreeNode(3);
+         auto inv = sol.invertTree(r);
+         printTree(out, inv);`,
+        `auto inv = sol.invertTree(nullptr);
+         printTree(out, inv);`,
+        `TreeNode* r = new TreeNode(1);
+         r->left = new TreeNode(2);
+         auto inv = sol.invertTree(r);
+         printTree(out, inv);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -631,8 +584,8 @@ struct TreeNode {
 
 ${userCode}
 
-void printTree(TreeNode* root) {
-    if (!root) { cout << "[]"; return; }
+void printTree(ostream& out, TreeNode* root) {
+    if (!root) { out << "[]"; return; }
     vector<string> parts;
     queue<TreeNode*> q;
     q.push(root);
@@ -647,47 +600,14 @@ void printTree(TreeNode* root) {
         }
     }
     while (!parts.empty() && parts.back() == "null") parts.pop_back();
-    cout << "[";
+    out << "[";
     for (size_t i = 0; i < parts.size(); ++i) {
-        cout << parts[i] << (i + 1 < parts.size() ? ", " : "");
+        out << parts[i] << (i + 1 < parts.size() ? ", " : "");
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try {
-        TreeNode* r0 = new TreeNode(4);
-        r0->left = new TreeNode(2); r0->right = new TreeNode(7);
-        r0->left->left = new TreeNode(1); r0->left->right = new TreeNode(3);
-        r0->right->left = new TreeNode(6); r0->right->right = new TreeNode(9);
-        auto inv0 = sol.invertTree(r0);
-        cout << "CASE:0:OUT:"; printTree(inv0); cout << endl;
-    } catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try {
-        TreeNode* r1 = new TreeNode(2);
-        r1->left = new TreeNode(1); r1->right = new TreeNode(3);
-        auto inv1 = sol.invertTree(r1);
-        cout << "CASE:1:OUT:"; printTree(inv1); cout << endl;
-    } catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try {
-        auto inv2 = sol.invertTree(nullptr);
-        cout << "CASE:2:OUT:"; printTree(inv2); cout << endl;
-    } catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try {
-        TreeNode* r3 = new TreeNode(1);
-        r3->left = new TreeNode(2);
-        auto inv3 = sol.invertTree(r3);
-        cout << "CASE:3:OUT:"; printTree(inv3); cout << endl;
-    } catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[4, 7, 2, 9, 6, 3, 1]', 1: '[2, 3, 1]', 2: '[]', 3: '[1, null, 2]' },
@@ -702,7 +622,13 @@ int main() {
   },
 
   'longest-substring-without-repeating-characters': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `out << sol.lengthOfLongestSubstring("abcabcbb");`,
+        `out << sol.lengthOfLongestSubstring("bbbbb");`,
+        `out << sol.lengthOfLongestSubstring("pwwkew");`,
+        `out << sol.lengthOfLongestSubstring("dvdf");`
+      ];
       return `
 #include <iostream>
 #include <string>
@@ -710,26 +636,9 @@ int main() {
 #include <algorithm>
 using namespace std;
 
-\${userCode}
+${userCode}
 
-int main() {
-    Solution sol;
-
-    try { cout << "CASE:0:OUT:" << sol.lengthOfLongestSubstring("abcabcbb") << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:1:OUT:" << sol.lengthOfLongestSubstring("bbbbb") << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:2:OUT:" << sol.lengthOfLongestSubstring("pwwkew") << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { cout << "CASE:3:OUT:" << sol.lengthOfLongestSubstring("dvdf") << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '3', 1: '1', 2: '3', 3: '3' },
@@ -744,32 +653,25 @@ int main() {
   },
 
   'binary-search': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> a = {-1, 0, 3, 5, 9, 12};
+         out << sol.search(a, 9);`,
+        `vector<int> a = {-1, 0, 3, 5, 9, 12};
+         out << sol.search(a, 2);`,
+        `vector<int> a = {5};
+         out << sol.search(a, 5);`,
+        `vector<int> a = {2, 5};
+         out << sol.search(a, 0);`
+      ];
       return `
 #include <iostream>
 #include <vector>
 using namespace std;
 
-\${userCode}
+${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<int> a0 = {-1, 0, 3, 5, 9, 12}; cout << "CASE:0:OUT:" << sol.search(a0, 9) << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> a1 = {-1, 0, 3, 5, 9, 12}; cout << "CASE:1:OUT:" << sol.search(a1, 2) << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> a2 = {5}; cout << "CASE:2:OUT:" << sol.search(a2, 5) << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> a3 = {2, 5}; cout << "CASE:3:OUT:" << sol.search(a3, 0) << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '4', 1: '-1', 2: '0', 3: '-1' },
@@ -784,32 +686,25 @@ int main() {
   },
 
   'search-in-rotated-sorted-array': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `vector<int> a = {4, 5, 6, 7, 0, 1, 2};
+         out << sol.search(a, 0);`,
+        `vector<int> a = {4, 5, 6, 7, 0, 1, 2};
+         out << sol.search(a, 3);`,
+        `vector<int> a = {1};
+         out << sol.search(a, 0);`,
+        `vector<int> a = {3, 1};
+         out << sol.search(a, 1);`
+      ];
       return `
 #include <iostream>
 #include <vector>
 using namespace std;
 
-\${userCode}
+${userCode}
 
-int main() {
-    Solution sol;
-
-    try { vector<int> a0 = {4, 5, 6, 7, 0, 1, 2}; cout << "CASE:0:OUT:" << sol.search(a0, 0) << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> a1 = {4, 5, 6, 7, 0, 1, 2}; cout << "CASE:1:OUT:" << sol.search(a1, 3) << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { vector<int> a2 = {1}; cout << "CASE:2:OUT:" << sol.search(a2, 0) << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { vector<int> a3 = {3, 1}; cout << "CASE:3:OUT:" << sol.search(a3, 1) << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '4', 1: '-1', 2: '-1', 3: '1' },
@@ -824,7 +719,21 @@ int main() {
   },
 
   'reverse-linked-list': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `ListNode* h = makeList({1, 2, 3, 4, 5});
+         auto r = sol.reverseList(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({1, 2});
+         auto r = sol.reverseList(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({});
+         auto r = sol.reverseList(h);
+         printList(out, r);`,
+        `ListNode* h = makeList({1});
+         auto r = sol.reverseList(h);
+         printList(out, r);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -836,7 +745,7 @@ struct ListNode {
     ListNode(int x) : val(x), next(nullptr) {}
 };
 
-\${userCode}
+${userCode}
 
 ListNode* makeList(const vector<int>& vals) {
     if (vals.empty()) return nullptr;
@@ -849,33 +758,16 @@ ListNode* makeList(const vector<int>& vals) {
     return head;
 }
 
-void printList(ListNode* head) {
-    cout << "[";
+void printList(ostream& out, ListNode* head) {
+    out << "[";
     while (head) {
-        cout << head->val << (head->next ? ", " : "");
+        out << head->val << (head->next ? ", " : "");
         head = head->next;
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try { ListNode* h0 = makeList({1, 2, 3, 4, 5}); auto r0 = sol.reverseList(h0); cout << "CASE:0:OUT:"; printList(r0); cout << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h1 = makeList({1, 2}); auto r1 = sol.reverseList(h1); cout << "CASE:1:OUT:"; printList(r1); cout << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* h2 = makeList({}); auto r2 = sol.reverseList(h2); cout << "CASE:2:OUT:"; printList(r2); cout << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { ListNode* h3 = makeList({1}); auto r3 = sol.reverseList(h3); cout << "CASE:3:OUT:"; printList(r3); cout << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[5, 4, 3, 2, 1]', 1: '[2, 1]', 2: '[]', 3: '[1]' },
@@ -890,7 +782,25 @@ int main() {
   },
 
   'merge-two-sorted-lists': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `ListNode* l1 = makeList({1, 2, 4});
+         ListNode* l2 = makeList({1, 3, 4});
+         auto r = sol.mergeTwoLists(l1, l2);
+         printList(out, r);`,
+        `ListNode* l1 = makeList({});
+         ListNode* l2 = makeList({});
+         auto r = sol.mergeTwoLists(l1, l2);
+         printList(out, r);`,
+        `ListNode* l1 = makeList({});
+         ListNode* l2 = makeList({0});
+         auto r = sol.mergeTwoLists(l1, l2);
+         printList(out, r);`,
+        `ListNode* l1 = makeList({2});
+         ListNode* l2 = makeList({1});
+         auto r = sol.mergeTwoLists(l1, l2);
+         printList(out, r);`
+      ];
       return `
 #include <iostream>
 #include <vector>
@@ -902,7 +812,7 @@ struct ListNode {
     ListNode(int x) : val(x), next(nullptr) {}
 };
 
-\${userCode}
+${userCode}
 
 ListNode* makeList(const vector<int>& vals) {
     if (vals.empty()) return nullptr;
@@ -915,33 +825,16 @@ ListNode* makeList(const vector<int>& vals) {
     return head;
 }
 
-void printList(ListNode* head) {
-    cout << "[";
+void printList(ostream& out, ListNode* head) {
+    out << "[";
     while (head) {
-        cout << head->val << (head->next ? ", " : "");
+        out << head->val << (head->next ? ", " : "");
         head = head->next;
     }
-    cout << "]";
+    out << "]";
 }
 
-int main() {
-    Solution sol;
-
-    try { ListNode* l1 = makeList({1, 2, 4}); ListNode* l2 = makeList({1, 3, 4}); auto r0 = sol.mergeTwoLists(l1, l2); cout << "CASE:0:OUT:"; printList(r0); cout << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* l1 = makeList({}); ListNode* l2 = makeList({}); auto r1 = sol.mergeTwoLists(l1, l2); cout << "CASE:1:OUT:"; printList(r1); cout << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { ListNode* l1 = makeList({}); ListNode* l2 = makeList({0}); auto r2 = sol.mergeTwoLists(l1, l2); cout << "CASE:2:OUT:"; printList(r2); cout << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { ListNode* l1 = makeList({2}); ListNode* l2 = makeList({1}); auto r3 = sol.mergeTwoLists(l1, l2); cout << "CASE:3:OUT:"; printList(r3); cout << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '[1, 1, 2, 3, 4, 4]', 1: '[]', 2: '[0]', 3: '[1, 2]' },
@@ -956,33 +849,22 @@ int main() {
   },
 
   'valid-parentheses': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `out << (sol.isValid("()") ? "true" : "false");`,
+        `out << (sol.isValid("()[]{}") ? "true" : "false");`,
+        `out << (sol.isValid("(]") ? "true" : "false");`,
+        `out << (sol.isValid("([)]") ? "true" : "false");`
+      ];
       return `
 #include <iostream>
 #include <string>
 #include <stack>
 using namespace std;
 
-\${userCode}
+${userCode}
 
-int main() {
-    Solution sol;
-
-    try { cout << "CASE:0:OUT:" << (sol.isValid("()") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:1:OUT:" << (sol.isValid("()[]{}") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try { cout << "CASE:2:OUT:" << (sol.isValid("(]") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try { cout << "CASE:3:OUT:" << (sol.isValid("([)]") ? "true" : "false") << endl; }
-    catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: 'true', 1: 'true', 2: 'false', 3: 'false' },
@@ -997,7 +879,21 @@ int main() {
   },
 
   'maximum-depth-of-binary-tree': {
-    buildHarness(userCode) {
+    buildHarness(userCode, caseId) {
+      const cases = [
+        `TreeNode* r = new TreeNode(3);
+         r->left = new TreeNode(9);
+         r->right = new TreeNode(20);
+         r->right->left = new TreeNode(15);
+         r->right->right = new TreeNode(7);
+         out << sol.maxDepth(r);`,
+        `TreeNode* r = new TreeNode(1);
+         r->right = new TreeNode(2);
+         out << sol.maxDepth(r);`,
+        `out << sol.maxDepth(nullptr);`,
+        `TreeNode* r = new TreeNode(0);
+         out << sol.maxDepth(r);`
+      ];
       return `
 #include <iostream>
 #include <algorithm>
@@ -1010,38 +906,9 @@ struct TreeNode {
     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
 };
 
-\${userCode}
+${userCode}
 
-int main() {
-    Solution sol;
-
-    try {
-        TreeNode* r0 = new TreeNode(3);
-        r0->left = new TreeNode(9);
-        r0->right = new TreeNode(20);
-        r0->right->left = new TreeNode(15);
-        r0->right->right = new TreeNode(7);
-        cout << "CASE:0:OUT:" << sol.maxDepth(r0) << endl;
-    } catch(...) { cout << "CASE:0:ERROR:Exception thrown" << endl; }
-
-    try {
-        TreeNode* r1 = new TreeNode(1);
-        r1->right = new TreeNode(2);
-        cout << "CASE:1:OUT:" << sol.maxDepth(r1) << endl;
-    } catch(...) { cout << "CASE:1:ERROR:Exception thrown" << endl; }
-
-    try {
-        cout << "CASE:2:OUT:" << sol.maxDepth(nullptr) << endl;
-    } catch(...) { cout << "CASE:2:ERROR:Exception thrown" << endl; }
-
-    // HIDDEN
-    try {
-        TreeNode* r3 = new TreeNode(0);
-        cout << "CASE:3:OUT:" << sol.maxDepth(r3) << endl;
-    } catch(...) { cout << "CASE:3:ERROR:Exception thrown" << endl; }
-
-    return 0;
-}
+${caseMain(cases[caseId])}
 `;
     },
     expectedOutputs: { 0: '3', 1: '2', 2: '0', 3: '1' },
@@ -1058,62 +925,28 @@ int main() {
 
 // ─── Grading ─────────────────────────────────────────────────────────────────
 
-function normalise(s) {
-  return String(s).replace(/\r\n/g, '\n').trim().toLowerCase().replace(/\s+/g, '');
-}
-
-function compareOutputs(actual, expected) {
-  if (actual == null || expected == null) return false;
-  return normalise(actual) === normalise(expected);
-}
-
-/**
- * Parse raw program stdout into per-test-case results.
- * Returns an array of result objects safe to send to the browser
- * (hidden inputs and expected outputs are stripped).
- */
-function gradeOutput(suite, rawOutput) {
-  const output = rawOutput || '';
-  let passedCount = 0;
-  const results = [];
-
-  for (const tc of suite.publicCases) {
-    const outMatch = output.match(new RegExp(`CASE:${tc.id}:OUT:(.*)`));
-    const errMatch = output.match(new RegExp(`CASE:${tc.id}:ERROR:(.*)`));
-
-    const expected = suite.expectedOutputs[tc.id];
-    const isHidden = suite.hiddenIds.has(tc.id);
-
-    let actual = '';
-    let passed = false;
-    let error = null;
-
-    if (errMatch) {
-      error  = errMatch[1].trim();
-      actual = `Exception: ${error}`;
-    } else if (outMatch) {
-      actual = outMatch[1].trim();
-      passed = compareOutputs(actual, expected);
-    } else {
-      actual = 'No output generated';
-    }
-
-    if (passed) passedCount++;
-
-    results.push({
-      id:             tc.id,
-      name:           tc.name,
-      isHidden,
-      passed,
-      error,
-      // Never reveal hidden inputs or expected outputs to the browser
-      inputDisplay:   isHidden ? 'Hidden test input'         : tc.inputDisplay,
-      expectedOutput: isHidden ? '[Protected]'               : expected,
-      actualOutput:   isHidden ? (passed ? '[Correct]' : '[Incorrect]') : actual,
-    });
+// The server associates each independent sandbox response with its own case.
+function gradeCase(suite, tc, rawOutput) {
+  const actual = (rawOutput || '').trim();
+  const expected = suite.expectedOutputs[tc.id];
+  let passed = false;
+  try {
+    passed = isDeepStrictEqual(JSON.parse(actual), JSON.parse(expected));
+  } catch {
+    // Empty output, extra records and malformed JSON are all wrong answers.
   }
 
-  return { passedCount, results };
+  const isHidden = suite.hiddenIds.has(tc.id);
+  return {
+    id: tc.id,
+    name: tc.name,
+    isHidden,
+    passed,
+    error: null,
+    inputDisplay: isHidden ? 'Hidden test input' : tc.inputDisplay,
+    expectedOutput: isHidden ? '[Protected]' : expected,
+    actualOutput: isHidden ? (passed ? '[Correct]' : '[Incorrect]') : (actual || 'No output generated'),
+  };
 }
 
-module.exports = { TEST_SUITES, gradeOutput, compareOutputs };
+module.exports = { TEST_SUITES, gradeCase };

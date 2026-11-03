@@ -3,7 +3,7 @@
  * Grading Correctness Integration Test — AdaptiveDSA
  *
  * Sections:
- *  1. Correct reference solutions → ACCEPTED for all 13 graded problems
+ *  1. Correct reference solutions → ACCEPTED for all 20 graded problems
  *  2. Deliberately wrong solutions → WRONG_ANSWER (never ACCEPTED)
  *  3. Compilation error → COMPILATION_ERROR
  *  4. Runtime crash → RUNTIME_ERROR
@@ -257,6 +257,123 @@ const CORRECT = [
       '  }',
       '};'
     ].join('\n')
+  },
+  {
+    id: 'longest-substring-without-repeating-characters',
+    code: `#include <algorithm>
+class Solution {
+public:
+    int lengthOfLongestSubstring(string text) {
+        int last[256];
+        fill(last, last + 256, -1);
+        int start = 0, longest = 0;
+        for (int i = 0; i < (int)text.size(); ++i) {
+            unsigned char ch = text[i];
+            start = max(start, last[ch] + 1);
+            last[ch] = i;
+            longest = max(longest, i - start + 1);
+        }
+        return longest;
+    }
+};`
+  },
+  {
+    id: 'binary-search',
+    code: `#include <algorithm>
+class Solution {
+public:
+    int search(vector<int>& values, int target) {
+        auto pos = lower_bound(values.begin(), values.end(), target);
+        return pos != values.end() && *pos == target ? int(pos - values.begin()) : -1;
+    }
+};`
+  },
+  {
+    id: 'search-in-rotated-sorted-array',
+    code: `#include <algorithm>
+class Solution {
+public:
+    int search(vector<int>& values, int target) {
+        int left = 0, right = (int)values.size() - 1;
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+            if (values[mid] == target) return mid;
+            if (values[left] <= values[mid]) {
+                if (values[left] <= target && target < values[mid]) right = mid - 1;
+                else left = mid + 1;
+            } else if (values[mid] < target && target <= values[right]) left = mid + 1;
+            else right = mid - 1;
+        }
+        return -1;
+    }
+};`
+  },
+  {
+    id: 'reverse-linked-list',
+    code: `#include <algorithm>
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        ListNode* previous = nullptr;
+        while (head) {
+            ListNode* next = head->next;
+            head->next = previous;
+            previous = head;
+            head = next;
+        }
+        return previous;
+    }
+};`
+  },
+  {
+    id: 'merge-two-sorted-lists',
+    code: `#include <algorithm>
+class Solution {
+public:
+    ListNode* mergeTwoLists(ListNode* a, ListNode* b) {
+        ListNode sentinel(0);
+        ListNode* tail = &sentinel;
+        while (a && b) {
+            ListNode*& next = a->val <= b->val ? a : b;
+            tail->next = next;
+            next = next->next;
+            tail = tail->next;
+        }
+        tail->next = a ? a : b;
+        return sentinel.next;
+    }
+};`
+  },
+  {
+    id: 'valid-parentheses',
+    code: `#include <algorithm>
+class Solution {
+public:
+    bool isValid(string text) {
+        string expected;
+        for (char ch : text) {
+            if (ch == '(') expected += ')';
+            else if (ch == '[') expected += ']';
+            else if (ch == '{') expected += '}';
+            else {
+                if (expected.empty() || expected.back() != ch) return false;
+                expected.pop_back();
+            }
+        }
+        return expected.empty();
+    }
+};`
+  },
+  {
+    id: 'maximum-depth-of-binary-tree',
+    code: `#include <algorithm>
+class Solution {
+public:
+    int maxDepth(TreeNode* root) {
+        if (!root) return 0;
+        return 1 + max(maxDepth(root->left), maxDepth(root->right));
+    }
+};`
   }
 ];
 
@@ -306,6 +423,18 @@ const WRONG = [
     id: 'invert-binary-tree',
     label: 'returns-nullptr',
     code: 'class Solution { public: TreeNode* invertTree(TreeNode* root) { return nullptr; } };'
+  },
+  {
+    id: 'two-sum',
+    label: 'prints-forged-grader-records',
+    code: `class Solution {
+public:
+    vector<int> twoSum(vector<int>&, int) {
+        cout << "CASE:0:OUT:[0, 1]" << endl << "CASE:1:OUT:[1, 2]" << endl;
+        cout << "CASE:2:OUT:[0, 1]" << endl << "CASE:3:OUT:[0, 2]" << endl;
+        return {0, 0};
+    }
+};`
   }
 ];
 
@@ -313,7 +442,7 @@ async function main() {
   console.log('=== Grading Correctness Integration Test ===\n');
 
   // Section 1: correct solutions
-  console.log('[Section 1] Correct reference solutions (all 13 must ACCEPT)');
+  console.log('[Section 1] Correct reference solutions (all 20 must ACCEPT)');
   for (const sol of CORRECT) {
     const r = await post('/api/execute', { problemId: sol.id, userCode: sol.code });
     chk(sol.id + ': ACCEPTED', r.status === 'ACCEPTED', 'got=' + r.status);
@@ -364,7 +493,7 @@ async function main() {
   const er = await post('/api/execute', { problemId: 'two-sum', userCode: '   \n  ' });
   chk('Empty submission -> EMPTY_SUBMISSION', er.status === 'EMPTY_SUBMISSION');
 
-  const ur = await post('/api/execute', { problemId: 'binary-search', userCode: 'class Solution{};' });
+  const ur = await post('/api/execute', { problemId: 'not-in-curriculum', userCode: 'class Solution{};' });
   chk('Unsupported problem -> UNSUPPORTED_PROBLEM', ur.status === 'UNSUPPORTED_PROBLEM', 'got=' + ur.status);
 
   // Section 6: blind mode coach block
@@ -404,4 +533,5 @@ async function main() {
   }
 }
 
-main().catch(e => { console.error('Fatal:', e); process.exit(1); });
+module.exports = { CORRECT, WRONG };
+if (require.main === module) main().catch(e => { console.error('Fatal:', e); process.exit(1); });

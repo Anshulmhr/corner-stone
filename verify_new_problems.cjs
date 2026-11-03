@@ -23,7 +23,7 @@
 'use strict';
 
 const assert = require('assert');
-const { TEST_SUITES, gradeOutput, compareOutputs } = require('./server/testSuites.js');
+const { TEST_SUITES, gradeCase } = require('./server/testSuites.js');
 
 const WANDBOX_URL = 'https://wandbox.org/api/compile.json';
 
@@ -248,20 +248,13 @@ async function verifyAll() {
     const suite = TEST_SUITES[pid];
     assert.ok(suite, `TEST_SUITE not configured for ${pid}`);
 
-    // 1. Build harness with reference solution
-    const userCode = REFERENCE_SOLUTIONS[pid];
-    const fullSource = suite.buildHarness(userCode);
-
-    // 2. Execute on Wandbox GCC
-    const exec = await executeWandbox(fullSource);
-    if (exec.status !== '0' && exec.compiler_error) {
-      console.log('FAILED (Compilation Error)');
-      console.error(exec.compiler_error);
-      process.exit(1);
+    const results = [];
+    for (const tc of suite.publicCases) {
+      const exec = await executeWandbox(suite.buildHarness(REFERENCE_SOLUTIONS[pid], tc.id));
+      assert.equal(exec.status, '0', exec.compiler_error || exec.program_error || exec.signal);
+      results.push(gradeCase(suite, tc, exec.program_output));
     }
-
-    // 3. Grade output
-    const { passedCount, results } = gradeOutput(suite, exec.program_output);
+    const passedCount = results.filter(result => result.passed).length;
     assert.strictEqual(passedCount, suite.totalCount, `Expected ${suite.totalCount} passed, got ${passedCount}`);
     assert.strictEqual(results.length, suite.totalCount);
 

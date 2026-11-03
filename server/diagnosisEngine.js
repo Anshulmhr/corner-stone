@@ -62,7 +62,7 @@ function diagnose({ status, compilerError, runtimeError, passedCount, totalCount
     result = {
       category:    'TLE',
       label:       'Time Complexity Issue',
-      explanation: `Your solution exceeded the ${Math.round(executionTimeMs / 1000)}s time limit. `
+      explanation: "The sandbox reported that your program exceeded its CPU time limit. "
                  + "This usually means the algorithm's time complexity is too high for the input size.",
       nextStep:    'Review your approach for nested loops or repeated work. '
                  + 'Can you reduce O(n²) to O(n) with a hash map, or O(n log n) with sorting?',

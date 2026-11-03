@@ -13,7 +13,7 @@
 'use strict';
 
 const express = require('express');
-const { TEST_SUITES, gradeOutput } = require('./testSuites.js');
+const { TEST_SUITES, gradeCase } = require('./testSuites.js');
 const { diagnose } = require('./diagnosisEngine.js');
 const { handleCoachRequest } = require('./coachService.js');
 
@@ -55,7 +55,7 @@ setInterval(() => {
   for (const [ip, entry] of rateLimitMap) {
     if (entry.windowStart < cutoff) rateLimitMap.delete(ip);
   }
-}, RATE_WINDOW);
+}, RATE_WINDOW).unref();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 // Only accept JSON bodies within the size limit.
@@ -82,65 +82,44 @@ function capOutput(s) {
     : s;
 }
 
-async function callWandboxAttempt(fullSource) {
-  const controller = new AbortController();
-  const timer      = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
-  const startMs    = Date.now();
-
+async function runCase(suite, tc, userCode, signal) {
+  const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      compiler: 'gcc-head', options: 'c++17', stdin: '',
+      code: suite.buildHarness(userCode, tc.id),
+    }),
+    signal,
+  };
+  let response;
   try {
-    const resp = await fetch(WANDBOX_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        compiler: 'gcc-head',
-        code:     fullSource,
-        stdin:    '',
-        options:  'c++17',
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timer);
-    const json         = await resp.json();
-    const executionTimeMs = Date.now() - startMs;
-
-    const status         = json.status !== undefined ? Number(json.status) : (json.compiler_error ? 1 : 0);
-    const isCompileError = Boolean(json.compiler_error && status !== 0 && !json.program_output);
-    const isRuntimeError = Boolean(status !== 0 && !isCompileError);
-
-    return {
-      ok:             true,
-      status,
-      compilerOutput: capOutput(json.compiler_output),
-      compilerError:  capOutput(json.compiler_error),
-      compilerMessage:capOutput(json.compiler_message),
-      programOutput:  capOutput(json.program_output),
-      programError:   capOutput(json.program_error),
-      isCompileError,
-      isRuntimeError,
-      executionTimeMs,
-    };
-  } catch (err) {
-    clearTimeout(timer);
-    return {
-      ok:             false,
-      timedOut:       err.name === 'AbortError',
-      error:          err.name === 'AbortError'
-                        ? `Execution timed out after ${EXECUTION_TIMEOUT / 1000}s`
-                        : err.message,
-      executionTimeMs: Date.now() - startMs,
-    };
+    response = await fetch(WANDBOX_URL, options);
+  } catch (error) {
+    if (signal.aborted || error.name === 'AbortError') throw error;
+    // Retry a dropped connection once within the same submission deadline.
+    await new Promise(resolve => setTimeout(resolve, 750));
+    response = await fetch(WANDBOX_URL, options);
   }
-}
+  if (!response.ok) throw new Error('Compiler service unavailable');
+  const job = await response.json();
+  const hasStatus = /^\d+$/.test(String(job?.status));
+  if (!hasStatus && !job?.signal) throw new Error('Incomplete compiler response');
 
-async function callWandbox(fullSource) {
-  const result = await callWandboxAttempt(fullSource);
-  // If transient socket/network error (not timeout), retry once after a short delay
-  if (!result.ok && !result.timedOut) {
-    await new Promise(r => setTimeout(r, 750));
-    return await callWandboxAttempt(fullSource);
+  if (job.signal || Number(job.status) !== 0) {
+    // Hidden jobs must never return compiler source lines or student-printed data.
+    const hidden = suite.hiddenIds.has(tc.id);
+    if (job.signal && /CPU time limit|SIGXCPU/i.test(job.signal)) {
+      return { status: 'TIME_LIMIT_EXCEEDED', judged: true, message: 'The program exceeded its CPU time limit.' };
+    }
+    if (!job.signal && job.compiler_error && !job.program_error && !job.program_output) {
+      return { status: 'COMPILATION_ERROR', compilerError: hidden
+        ? 'Compilation failed on a protected case.' : capOutput(job.compiler_error) };
+    }
+    return { status: 'RUNTIME_ERROR', runtimeError: hidden
+      ? 'The program failed on a protected case.' : capOutput(job.program_error || job.signal || 'Program exited with status ' + job.status) };
   }
-  return result;
+  return { result: gradeCase(suite, tc, capOutput(job.program_output)) };
 }
 
 // ─── POST /api/execute ────────────────────────────────────────────────────────
@@ -179,7 +158,7 @@ app.post('/api/execute', async (req, res) => {
   }
 
   // 4. Look up test suite — server-side only
-  const suite = TEST_SUITES[problemId];
+  const suite = Object.hasOwn(TEST_SUITES, problemId) && TEST_SUITES[problemId];
   if (!suite) {
     return res.status(400).json({
       status:  'UNSUPPORTED_PROBLEM',
@@ -187,101 +166,40 @@ app.post('/api/execute', async (req, res) => {
     });
   }
 
-  // 5. Assemble harness server-side (hidden test values stay here)
-  const fullSource = suite.buildHarness(userCode);
-
-  // 6. Execute in Wandbox sandbox
-  const exec = await callWandbox(fullSource);
-
-  if (!exec.ok) {
-    const isTimeout = Boolean(exec.timedOut);
-    const status = isTimeout ? 'TIME_LIMIT_EXCEEDED' : 'EXECUTION_FAILED';
-    const diag = diagnose({
-      status,
-      totalCount: suite.totalCount,
-      executionTimeMs: exec.executionTimeMs,
-      attemptHistory,
+  // The server binds each result to the job it launched. Student output cannot
+  // declare another case passed. All jobs share one wall-clock deadline.
+  const started = Date.now();
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), EXECUTION_TIMEOUT);
+  let jobs;
+  try {
+    jobs = await Promise.all(suite.publicCases.map(tc => runCase(suite, tc, userCode, controller.signal)));
+  } catch {
+    controller.abort();
+    return res.status(503).json({
+      status: 'EXECUTION_FAILED', message: 'The compiler service could not finish grading. Please retry.',
+      passedCount: 0, totalCount: 0, results: [], diagnosis: null,
+      executionTimeMs: Date.now() - started,
     });
+  } finally {
+    clearTimeout(deadline);
+  }
 
+  const executionTimeMs = Date.now() - started;
+  const failure = jobs.find(job => job.status);
+  if (failure) {
     return res.json({
-      status,
-      message: exec.error,
-      passedCount: 0,
-      totalCount:  suite.totalCount,
-      results:     [],
-      executionTimeMs: exec.executionTimeMs,
-      diagnosis:   diag,
+      ...failure, passedCount: 0, totalCount: suite.totalCount, results: [], executionTimeMs,
+      diagnosis: diagnose({ ...failure, totalCount: suite.totalCount, executionTimeMs, attemptHistory }),
     });
   }
 
-  // 7. Handle compilation errors
-  if (exec.isCompileError || (exec.status !== 0 && exec.compilerError)) {
-    const compilerError = exec.compilerError || exec.compilerMessage || 'Compilation failed.';
-    const diag = diagnose({
-      status:        'COMPILATION_ERROR',
-      compilerError,
-      totalCount:    suite.totalCount,
-      executionTimeMs: exec.executionTimeMs,
-      attemptHistory,
-    });
-
-    return res.json({
-      status:        'COMPILATION_ERROR',
-      compilerError,
-      passedCount:   0,
-      totalCount:    suite.totalCount,
-      results:       [],
-      executionTimeMs: exec.executionTimeMs,
-      diagnosis:     diag,
-    });
-  }
-
-  // 8. Handle runtime errors
-  if (exec.isRuntimeError) {
-    const runtimeError = exec.programError ||
-                         `Process crashed (exit code ${exec.status}).`;
-    const diag = diagnose({
-      status:       'RUNTIME_ERROR',
-      runtimeError,
-      totalCount:   suite.totalCount,
-      executionTimeMs: exec.executionTimeMs,
-      attemptHistory,
-    });
-
-    return res.json({
-      status:       'RUNTIME_ERROR',
-      runtimeError,
-      passedCount:  0,
-      totalCount:   suite.totalCount,
-      results:      [],
-      executionTimeMs: exec.executionTimeMs,
-      diagnosis:    diag,
-    });
-  }
-
-  // 9. Grade outputs — hidden data never leaves this process
-  const { passedCount, results } = gradeOutput(suite, exec.programOutput);
-  const allPassed = passedCount === suite.totalCount;
-  const status = allPassed ? 'ACCEPTED' : 'WRONG_ANSWER';
-
-  const diag = diagnose({
-    status,
-    passedCount,
-    totalCount:    suite.totalCount,
-    gradedResults: results,
-    suite,
-    executionTimeMs: exec.executionTimeMs,
-    attemptHistory,
-  });
-
-  return res.json({
-    status,
-    passedCount,
-    totalCount:  suite.totalCount,
-    results,
-    executionTimeMs: exec.executionTimeMs,
-    diagnosis:   diag,
-  });
+  const results = jobs.map(job => job.result);
+  const passedCount = results.filter(result => result.passed).length;
+  const totalCount = suite.totalCount;
+  const status = passedCount === totalCount ? 'ACCEPTED' : 'WRONG_ANSWER';
+  const diagnosis = diagnose({ status, passedCount, totalCount, gradedResults: results, suite, executionTimeMs, attemptHistory });
+  return res.json({ status, passedCount, totalCount, results, executionTimeMs, diagnosis });
 });
 
 // ─── POST /api/coach ──────────────────────────────────────────────────────────
@@ -365,8 +283,10 @@ app.post('/api/coach', async (req, res) => {
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`[AdaptiveDSA API] Running on http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, '127.0.0.1', () => {
+    console.log(`[AdaptiveDSA API] Running on http://127.0.0.1:${PORT}`);
+  });
+}
 
 module.exports = app; // for testing

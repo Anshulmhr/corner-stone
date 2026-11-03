@@ -29,14 +29,33 @@ export function isProblemSolved(problemId) {
   return solved.includes(problemId);
 }
 
-export function getAttempts() {
+function readAttempts() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
-    return raw ? JSON.parse(raw) : [];
+    const attempts = raw ? JSON.parse(raw) : [];
+    return Array.isArray(attempts) ? attempts : [];
   } catch (e) {
     console.error('Failed reading attempts', e);
     return [];
   }
+}
+
+const ungradedStatuses = new Set(['EMPTY_SUBMISSION', 'UNSUPPORTED_PROBLEM', 'RATE_LIMITED', 'EXECUTION_FAILED']);
+
+// Older versions labelled a compiler-service timeout as TIME_LIMIT_EXCEEDED.
+// New, confirmed program CPU limits carry an explicit "judged" flag.
+export function isUngradedAttempt({ status, judged }) {
+  return ungradedStatuses.has(status) || (status === 'TIME_LIMIT_EXCEEDED' && judged !== true);
+}
+
+export function getAttempts() {
+  return readAttempts().filter(attempt => !isUngradedAttempt(attempt)).map(attempt => {
+    if (attempt.evaluationType === 'manual' && attempt.success) {
+      return { ...attempt, status: 'SELF_REPORTED', isBlindSolve: false,
+        blindSolveTimeSeconds: null, independenceScore: null };
+    }
+    return attempt;
+  });
 }
 
 export function getUnlockedHints(problemId) {
@@ -103,6 +122,7 @@ export function recordAttempt({
   success, 
   hintsUnlocked = 0, 
   code = '',
+  judged,
   evaluationType = 'automated', // 'automated' | 'manual'
   language = 'cpp',             // 'cpp' | 'javascript'
   status = null,                // 'ACCEPTED' | 'WRONG_ANSWER' | 'COMPILATION_ERROR' | 'RUNTIME_ERROR'
@@ -115,7 +135,9 @@ export function recordAttempt({
   independenceScore = null
 }) {
   try {
-    const attempts = getAttempts();
+    if (isUngradedAttempt({ status, judged })) return null;
+    const attempts = readAttempts();
+    const manual = evaluationType === 'manual';
     const newAttempt = {
       id: 'att_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       problemId,
@@ -128,14 +150,15 @@ export function recordAttempt({
       codeLength: code.length,
       evaluationType,
       language,
-      status: status || (success ? 'ACCEPTED' : 'INCOMPLETE'),
+      status: manual && success ? 'SELF_REPORTED' : (status || (success ? 'ACCEPTED' : 'INCOMPLETE')),
+      judged,
       passedCount,
       totalCount,
       executionTimeMs,
       diagnosisCategory,
-      isBlindSolve,
-      blindSolveTimeSeconds,
-      independenceScore
+      isBlindSolve: !manual && isBlindSolve,
+      blindSolveTimeSeconds: manual ? null : blindSolveTimeSeconds,
+      independenceScore: manual ? null : independenceScore
     };
     // Prepend latest
     attempts.unshift(newAttempt);

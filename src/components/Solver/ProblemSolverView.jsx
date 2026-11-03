@@ -24,7 +24,8 @@ import {
   unlockNextHint, 
   getCodeDraft, 
   saveCodeDraft, 
-  recordAttempt, 
+  recordAttempt,
+  isUngradedAttempt,
   getAttempts,
   isProblemSolved 
 } from '../../services/storage.js';
@@ -187,24 +188,24 @@ export default function ProblemSolverView({
     setIsExecuting(true);
     setAlertMessage(null);
 
-    // If blind mode is active, increment session submission counter
-    let currentSession = blindSession;
-    if (isBlindMode) {
-      currentSession = incrementBlindSubmissions(problem.id);
-      setBlindSession(currentSession);
-    }
-
     try {
       const previousAttempts = getAttempts().filter(a => a.problemId === problem.id);
       const evalOutcome = await evaluateCppSubmission(problem.id, code, previousAttempts);
       setEvaluationResult(evalOutcome);
 
+      if (isUngradedAttempt(evalOutcome)) return;
+
+      // A delayed result must belong to the same, still-active challenge.
+      const activeSession = getActiveBlindSession(problem.id);
+      const inChallenge = isBlindMode && activeSession && activeSession.startTime === blindSession?.startTime;
+      const currentSession = inChallenge ? incrementBlindSubmissions(problem.id) : null;
+      if (currentSession) setBlindSession(currentSession);
       const isAccepted = evalOutcome.status === 'ACCEPTED';
 
       let scoreResult = null;
       let finalElapsed = elapsedSeconds;
 
-      if (isBlindMode && isAccepted) {
+      if (inChallenge && isAccepted) {
         const completed = endBlindSession(problem.id);
         finalElapsed = completed ? completed.elapsedSeconds : elapsedSeconds;
         const subCount = completed ? completed.submissionCount : (currentSession?.submissionCount || 1);
@@ -232,17 +233,18 @@ export default function ProblemSolverView({
         topic: problem.topic,
         difficulty: problem.difficulty,
         success: isAccepted,
-        hintsUnlocked: isBlindMode ? 0 : unlockedLevel,
+        hintsUnlocked: inChallenge ? 0 : unlockedLevel,
         code,
         evaluationType: 'automated',
         language: 'cpp',
         status: evalOutcome.status,
+        judged: evalOutcome.judged,
         passedCount: evalOutcome.passedCount,
         totalCount: evalOutcome.totalCount,
         executionTimeMs: evalOutcome.executionTimeMs,
         diagnosisCategory: evalOutcome.diagnosis?.category || null,
-        isBlindSolve: isBlindMode || !!scoreResult,
-        blindSolveTimeSeconds: isBlindMode || scoreResult ? finalElapsed : null,
+        isBlindSolve: Boolean(inChallenge),
+        blindSolveTimeSeconds: inChallenge ? finalElapsed : null,
         independenceScore: scoreResult ? scoreResult.score : null
       });
 
@@ -282,26 +284,8 @@ export default function ProblemSolverView({
 
   // Manual fallback solve for JS or exploratory mode
   const handleManualSolve = () => {
-    let scoreResult = null;
-    let finalElapsed = elapsedSeconds;
-
     if (isBlindMode) {
-      const completed = endBlindSession(problem.id);
-      finalElapsed = completed ? completed.elapsedSeconds : elapsedSeconds;
-      const subCount = completed ? completed.submissionCount : 1;
-      scoreResult = calculateIndependenceScore({
-        success: true,
-        submissionCount: subCount,
-        hintsUsed: 0
-      });
-
-      setBlindResults({
-        success: true,
-        timeTaken: finalElapsed,
-        submissionCount: subCount,
-        hintsUsed: 0,
-        scoreData: scoreResult
-      });
+      abandonBlindSession(problem.id);
       setIsBlindMode(false);
       setBlindSession(null);
     }
@@ -312,23 +296,17 @@ export default function ProblemSolverView({
       topic: problem.topic,
       difficulty: problem.difficulty,
       success: true,
-      hintsUnlocked: isBlindMode ? 0 : unlockedLevel,
+      hintsUnlocked: unlockedLevel,
       code,
       evaluationType: 'manual',
       language,
-      status: 'ACCEPTED',
-      isBlindSolve: isBlindMode || !!scoreResult,
-      blindSolveTimeSeconds: isBlindMode || scoreResult ? finalElapsed : null,
-      independenceScore: scoreResult ? scoreResult.score : null
+      status: 'SELF_REPORTED'
     });
-
     setIsSolved(true);
-    if (!scoreResult) {
-      setAlertMessage({
-        type: 'success',
-        text: `Self-reported solve recorded with ${unlockedLevel} hint(s) unlocked.`
-      });
-    }
+    setAlertMessage({
+      type: 'success',
+      text: 'Self-reported practice saved. Only a passed C++ submission earns verified Blind Solve points.'
+    });
   };
 
   // Record an Incomplete/Manual Practice Attempt
@@ -758,6 +736,7 @@ export default function ProblemSolverView({
                 {/* Language Selector */}
                 <select
                   value={language}
+                  disabled={isExecuting}
                   onChange={(e) => handleLanguageSwitch(e.target.value)}
                   className="filter-select"
                   style={{
@@ -840,7 +819,7 @@ export default function ProblemSolverView({
                   className="btn btn-success"
                 >
                   <CheckCircle2 size={16} />
-                  <span>{isSolved ? 'Update / Re-verify Solved' : 'Mark as Solved'}</span>
+                  <span>{isSolved ? 'Update Self-Reported Solve' : 'Mark as Solved'}</span>
                 </button>
               </>
             )}
@@ -857,7 +836,7 @@ export default function ProblemSolverView({
           {/* Cognitive Understanding & Reflection Panel */}
           <UnderstandingReflectionPanel
             problem={problem}
-            evaluationResult={evaluationResult}
+            evaluationResult={evaluationResult && !isUngradedAttempt(evaluationResult) ? evaluationResult : null}
             isBlindMode={isBlindMode}
           />
 

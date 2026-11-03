@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node test_end_to_end_audit.cjs",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test:grading": "node test_grading_local.cjs && node --test test_grading_outcomes.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

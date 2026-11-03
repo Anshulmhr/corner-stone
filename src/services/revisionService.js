@@ -157,6 +157,8 @@ export function recordRevisionOutcome(problemId, outcome, notes = '') {
       problemTitle: prob.title,
       topic: prob.topic,
       difficulty: prob.difficulty,
+      evaluationType: 'manual',
+      language: 'javascript',
       success: outcome !== 'failed',
       hintsUnlocked: outcome === 'with_hints' ? 2 : 0,
       code: `// Active Recall Revision (${outcome})\n`
